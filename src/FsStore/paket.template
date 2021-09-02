@@ -1,0 +1,18 @@
+type project
+authors fc1943s
+language F#
+tags fsharp, fable
+repositoryType git
+repositoryUrl https://github.com/fc1943s/FsStore
+include-pdbs true
+include-referenced-projects true
+files
+    *.fsproj ==> fable
+    src/*.fs ==> fable/src
+    src/Bindings/*.fs ==> fable/src/Bindings
+    src/Selectors/*.fs ==> fable/src/Selectors
+    src/State/*.fs ==> fable/src/State
+    src/Atoms/*.fs ==> fable/src/Atoms
+    src/Store/*.fs ==> fable/src/Store
+    src/Hooks/*.fs ==> fable/src/Hooks
+    src/Tests/*.fs ==> fable/src/Tests
