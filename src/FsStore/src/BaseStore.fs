@@ -4,7 +4,6 @@ open System.Collections.Generic
 open Fable.Extras
 open System
 open FsStore.Model
-open FsBeacon.Shared
 open FsStore.State
 open Microsoft.FSharp.Core.Operators
 open FsCore

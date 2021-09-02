@@ -4,7 +4,7 @@ open Fable.Core.JsInterop
 open FsStore.Atom
 open FsStore.BaseStore.Store
 open FsStore.Model
-open FsBeacon.Shared
+open FsStore.State
 open Microsoft.FSharp.Core.Operators
 open FsCore
 open FsJs
