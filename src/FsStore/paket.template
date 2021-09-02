@@ -8,6 +8,7 @@ include-pdbs true
 include-referenced-projects true
 files
     *.fsproj ==> fable
+    paket.references ==> fable
     src/*.fs ==> fable/src
     src/Bindings/*.fs ==> fable/src/Bindings
     src/Selectors/*.fs ==> fable/src/Selectors

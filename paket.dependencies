@@ -6,7 +6,8 @@ source https://nuget.pkg.github.com/fc1943s/index.json username: "%GITHUB_ACTOR%
 
 nuget FSharp.Core ~> 5.0
 
-nuget FsJs
+nuget FsCore ~> 0.0 prerelease
+nuget FsJs ~> 0.0 prerelease
 
 // FsStore
 nuget Fable.SignalR ~> 0.11

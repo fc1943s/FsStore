@@ -130,7 +130,7 @@ NUGET
       Fable.Core (>= 3.1.6)
       FSharp.Core (>= 4.7.2)
   remote: https://nuget.pkg.github.com/fc1943s/index.json
-    FsCore (0.0.1-alpha.6)
+    FsCore (0.0.1-alpha.7)
       FSharp.Core (>= 5.0 < 6.0)
     FsJs (0.0.1-alpha.38)
       Fable.DateFunctions (>= 3.6 < 4.0)
