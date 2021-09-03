@@ -9,7 +9,7 @@ open FsJs
 
 
 module Batcher =
-    let interval = 15
+    let interval = 250
 
     type Cb<'TFnResult> = unit -> 'TFnResult
 

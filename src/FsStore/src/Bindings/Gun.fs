@@ -395,7 +395,7 @@ module Gun =
 
     type RawDataEntry = RawDataEntry of key: string * value: string
 
-    let inline radQuery (gun: IGunChainReference) =
+    let inline aliasRadQuery (gun: IGunChainReference) =
         Promise.create
             (fun res err ->
                 try

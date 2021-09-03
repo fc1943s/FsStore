@@ -227,7 +227,30 @@ module SelectorsMagic =
 
                             logger.Debug (fun () -> $"Selectors.Gun.asyncAlias. alias={alias}  ")
 
-                            return alias
+                            match alias with
+                            | Some alias -> return Some alias
+                            | None ->
+                                let gun = Atom.get getter Gun.gun
+                                let user = gun.user ()
+
+                                match user.__.sea with
+                                | Some ({ priv = Some (Priv (String.Valid _)) } as keys) ->
+                                    let! data = aliasRadQuery gun
+                                    let! alias = userDecode<Gun.Alias> keys data
+
+                                    logger.Debug
+                                        (fun () ->
+                                            $"Selectors.Gun.asyncAlias. returning alias. alias={alias}
+                                                                                  user.is={JS.JSON.stringify user.is}")
+
+                                    return alias
+                                | _ ->
+                                    logger.Debug
+                                        (fun () ->
+                                            $"Selectors.Gun.asyncAlias. returning none.
+                                                                                      user.is={JS.JSON.stringify user.is}")
+
+                                    return None
                         })
 
             let rec privateKeys =
