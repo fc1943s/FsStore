@@ -1350,25 +1350,31 @@ module Engine =
                     match collectionPath with
                     | Some (storeRoot, collection) when collectionTypeMap.ContainsKey ((storeRoot, collection)) ->
                         let collectionAtomType = collectionTypeMap.[(storeRoot, collection)]
-                        let typeMetadata = typeMetadataMap.[(DataType.Key, collectionAtomType)]
+                        let collectionType = DataType.Key, collectionAtomType
 
-                        let keys = keys |> Option.bind typeMetadata.OnFormat
+                        if typeMetadataMap.ContainsKey collectionType then
+                            let typeMetadata = typeMetadataMap.[collectionType]
 
-                        match keys with
-                        | Some keys ->
+                            let keys = keys |> Option.bind typeMetadata.OnFormat
+
+                            match keys with
+                            | Some keys ->
+                                addTimestamp
+                                    (fun () -> "[ updateKey ](a6-1) saving key. invoking collection Atom.change ")
+                                    getDebugInfo
+
+                                Atom.change
+                                    setter
+                                    (collectionKeysFamily (alias, storeRoot, collection))
+                                    (fun oldValue -> oldValue |> Map.add keys KeyOperation.Add)
+                            | None ->
+                                addTimestamp
+                                    (fun () -> "[ updateKey ](a6-1) skipping key. skipping Atom.change ")
+                                    getDebugInfo
+                        else
                             addTimestamp
-                                (fun () -> "[ updateKey ](a6-1) saving key. invoking collection Atom.change ")
+                                (fun () -> "[ updateKey ](a6-3) skipping key2. skipping Atom.change ")
                                 getDebugInfo
-
-                            Atom.change
-                                setter
-                                (collectionKeysFamily (alias, storeRoot, collection))
-                                (fun oldValue -> oldValue |> Map.add keys KeyOperation.Add)
-                        | None ->
-                            addTimestamp
-                                (fun () -> "[ updateKey ](a6-1) skipping key. skipping Atom.change ")
-                                getDebugInfo
-
                     | _ -> addTimestamp (fun () -> "[ updateKey ](a6-2) skipping collection Atom.change ") getDebugInfo)
 
         wrapper?init <- defaultValue
