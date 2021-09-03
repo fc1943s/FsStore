@@ -1348,7 +1348,7 @@ module Engine =
                         $"collectionPath={collectionPath} keys={keys} {getDebugInfo ()}"
 
                     match collectionPath with
-                    | Some (storeRoot, collection) ->
+                    | Some (storeRoot, collection) when collectionTypeMap.ContainsKey ((storeRoot, collection)) ->
                         let collectionAtomType = collectionTypeMap.[(storeRoot, collection)]
                         let typeMetadata = typeMetadataMap.[(DataType.Key, collectionAtomType)]
 
