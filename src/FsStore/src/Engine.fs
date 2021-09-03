@@ -1397,41 +1397,38 @@ module Engine =
         atom1
         |> Atom.wrap
             (fun getter ->
-                match atom1.init, atom2.init with
-                | default1, default2 when default1 <> unbox null && default2 <> unbox null ->
-                    match Atom.get getter atom1, Atom.get getter atom2 with
-                    | value1, value2 when
-                        value1 |> Object.compare default1.Value
-                        && (value2 |> Object.compare default2.Value
-                            || lastValue.IsNone
-                            || (Atom.get getter Selectors.Gun.alias).IsNone)
+                match Atom.get getter atom1, Atom.get getter atom2 with
+                | value1, value2 when
+                    value1
+                    |> Object.compare (atom1.init |> Option.defaultValue (unbox null))
+                    && (value2
+                        |> Object.compare (atom2.init |> Option.defaultValue (unbox null))
+                        || lastValue.IsNone
+                        || (Atom.get getter Selectors.Gun.alias).IsNone)
+                    ->
+                    let getDebugInfo () =
+                        $"value1={value1} value2={value2} {getDebugInfo ()}"
+
+                    addTimestamp (fun () -> "[ wrapper.get() ](b2) choosing value2") getDebugInfo
+                    value2
+                | value1, value2 ->
+                    let getDebugInfo () =
+                        $"value1={value1} value2={value2} {getDebugInfo ()}"
+
+                    match lastSetAtom with
+                    | Some lastSetAtom when
+                        lastValue.IsNone
+                        || lastValue |> Object.compare (Some value1) |> not
                         ->
-                        let getDebugInfo () =
-                            $"value1={value1} value2={value2} {getDebugInfo ()}"
+                        addTimestamp (fun () -> "[ wrapper.get() ](b3) different. triggering additional") getDebugInfo
 
-                        addTimestamp (fun () -> "[ wrapper.get() ](b2) choosing value2") getDebugInfo
-                        value2
-                    | value1, value2 ->
-                        let getDebugInfo () =
-                            $"value1={value1} value2={value2} {getDebugInfo ()}"
+                        lastValue <- Some value1
+                        lastSetAtom (Some value1)
+                    | _ -> ()
 
-                        match lastSetAtom with
-                        | Some lastSetAtom when
-                            lastValue.IsNone
-                            || lastValue |> Object.compare (Some value1) |> not
-                            ->
-                            addTimestamp
-                                (fun () -> "[ wrapper.get() ](b3) different. triggering additional")
-                                getDebugInfo
+                    addTimestamp (fun () -> "[ wrapper.get() ](b4) choosing value1") getDebugInfo
 
-                            lastValue <- Some value1
-                            lastSetAtom (Some value1)
-                        | _ -> ()
-
-                        addTimestamp (fun () -> "[ wrapper.get() ](b4) choosing value1") getDebugInfo
-
-                        value1
-                | _ -> failwith $"bindAtom. atoms without default value. {getDebugInfo ()}")
+                    value1)
             (fun _get setter newValue ->
                 let getDebugInfo () =
                     $"newValue={newValue} {getDebugInfo ()}"
