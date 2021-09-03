@@ -181,47 +181,6 @@ module SelectorsMagic =
 
                         gunUser :> Types.IGunNode)
 
-
-            let rec asyncAlias =
-                readSelector
-                    (nameof asyncAlias)
-                    (fun getter ->
-                        promise {
-                            let logger = Atom.get getter logger
-                            let _gunTrigger = Atom.get getter Atoms.gunTrigger
-                            let gun = Atom.get getter Gun.gun
-                            let user = gun.user ()
-
-                            match user.__.sea, user.is with
-                            | _,
-                              Some {
-                                       alias = Some (GunUserAlias.Alias (Alias (String.Valid alias)))
-                                   } ->
-                                logger.Debug
-                                    (fun () ->
-                                        $"Selectors.Gun.asyncAlias. alias={alias}  keys={user.__.sea |> Js.objectKeys}")
-
-                                return Some (Alias alias)
-                            | Some ({ priv = Some (Priv (String.Valid _)) } as keys), _ ->
-                                let! data = radQuery gun
-                                let! alias = userDecode<Gun.Alias> keys data
-
-                                logger.Debug
-                                    (fun () ->
-                                        $"Selectors.Gun.asyncAlias. returning alias. alias={alias}
-                                                                              user.is={JS.JSON.stringify user.is}")
-
-                                return alias
-                            | _ ->
-                                logger.Debug
-                                    (fun () ->
-                                        $"Selectors.Gun.asyncAlias. returning none.
-                                                                                  user.is={JS.JSON.stringify user.is}")
-
-                                return None
-                        })
-
-
             let rec alias =
                 readSelector
                     (nameof alias)
@@ -258,6 +217,18 @@ module SelectorsMagic =
 
                                 None)
 
+            let rec asyncAlias =
+                Atom.asyncReadSelector
+                    (IndexedAtomPath (FsStore.storeRoot, collection, [], AtomName (nameof asyncAlias)))
+                    (fun getter ->
+                        promise {
+                            let alias = Atom.get getter alias
+                            let logger = Atom.get getter logger
+
+                            logger.Debug (fun () -> $"Selectors.Gun.asyncAlias. alias={alias}  ")
+
+                            return alias
+                        })
 
             let rec privateKeys =
                 readSelector

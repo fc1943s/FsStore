@@ -426,18 +426,19 @@ module Engine =
                                                     let getDebugInfo () =
                                                         $"newValue={newValue} {getDebugInfo ()}"
 
-                                                    addTimestamp
-                                                        (fun () ->
-                                                            "[ ||==> Gun.batchSubscribe.on() ](j4-1(2)) invoking debouncedSetAtom. inside gun.on() ")
-                                                        getDebugInfo
+                                                    match newValue with
+                                                    | Some (ticks, value) ->
+                                                        addTimestamp
+                                                            (fun () ->
+                                                                "[ ||==> Gun.batchSubscribe.on() ](j4-1(2)) invoking debouncedSetAtom. inside gun.on() ")
+                                                            getDebugInfo
 
-                                                    debouncedAdapterSetAtom (
-                                                        newValue
-                                                        |> Option.map
-                                                            (fun (ticks, value) ->
-                                                                Transaction (NotFromUi, ticks, value))
-                                                        |> Option.defaultValue (unbox null)
-                                                    )
+                                                        debouncedAdapterSetAtom (Transaction (NotFromUi, ticks, value))
+                                                    | None ->
+                                                        addTimestamp
+                                                            (fun () ->
+                                                                "[ ||==> Gun.batchSubscribe.on() ](j4-1(3)) skipped set from gun ")
+                                                            getDebugInfo
                                                 with
                                                 | ex ->
                                                     Logger.logError
