@@ -1249,8 +1249,7 @@ module Engine =
 
         let addTimestamp fn getDebugInfo =
             Profiling.addTimestamp
-                (fun () ->
-                    $"{nameof FsStore} | Engine.createAtomWithSubscription {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.createAtomWithSubscription {fn ()} | {getDebugInfo ()}")
 
         let localAdaptersAtom =
             createAtomWithGroup storeAtomPath (Atom.AdapterType.Memory, (NotFromUi, defaultValue))
