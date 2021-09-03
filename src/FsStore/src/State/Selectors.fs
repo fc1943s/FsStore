@@ -223,9 +223,13 @@ module SelectorsMagic =
                     (fun getter ->
                         promise {
                             let alias = Atom.get getter alias
+                            let _gunTrigger = Atom.get getter Atoms.gunTrigger
                             let logger = Atom.get getter logger
 
-                            logger.Debug (fun () -> $"Selectors.Gun.asyncAlias. alias={alias}  ")
+                            let getLocals () =
+                                $"_gunTrigger={_gunTrigger} alias={alias}"
+
+                            logger.Debug (fun () -> $"Selectors.Gun.asyncAlias. {getLocals ()}")
 
                             match alias with
                             | Some alias -> return Some alias
