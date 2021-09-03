@@ -218,9 +218,9 @@ module Engine =
         let cache = Atom.Primitives.atom defaultValue
 
         let wrapper =
-            atom
+            cache
             |> wrapAtom
-                (fun getter setter _setAtom ->
+                (fun getter _ setAtom ->
                     promise {
                         addTimestamp (fun () -> "[ wrapper.mount() ](h1)") getDebugInfo
 
@@ -238,7 +238,7 @@ module Engine =
                                         (fun () -> "[ wrapper.mount.fn() ](h3) interval fn. triggering new value")
                                         getDebugInfo
 
-                                    Atom.set setter cache atomValue
+                                    setAtom atomValue
                                     lastValue <- Some atomValue
 
                         if intervalHandle = -1 then fn ()
@@ -1468,3 +1468,33 @@ module Engine =
             | true, guid -> Some (fn guid)
             | _ -> None
         | _ -> None
+
+    let inline deleteParent getter atom =
+        promise {
+            let alias = Atom.get getter Selectors.Gun.alias
+            let storeAtomPath = Atom.query (AtomReference.Atom atom)
+
+            let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
+
+            let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
+
+            match gunAtomNode with
+            | Some gunAtomNode ->
+                let! putResult = Gun.put (gunAtomNode.back ()) (unbox null)
+                Logger.logDebug (fun () -> $"Engine.deleteParent. putResult={putResult}")
+            | None -> failwith "Engine.deleteParent. invalid gun atom node"
+
+            match alias with
+            | Some (Gun.Alias alias) ->
+                let hub = Atom.get getter Selectors.Hub.hub
+
+                match hub with
+                | Some hub ->
+                    let nodes = atomPath |> AtomPath.Value |> String.split "/"
+
+                    if nodes.Length > 3 then
+                        let rootAtomPath = nodes |> Array.take 3 |> String.concat "/"
+                        do! hub.sendAsPromise (Sync.Request.Set (alias, rootAtomPath, null))
+                | _ -> Logger.logDebug (fun () -> "Engine.deleteParent. invalid hub. skipping")
+            | _ -> failwith "Engine.deleteParent. invalid alias"
+        }

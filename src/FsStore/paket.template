@@ -15,5 +15,6 @@ files
     src/State/*.fs ==> fable/src/State
     src/Atoms/*.fs ==> fable/src/Atoms
     src/Store/*.fs ==> fable/src/Store
+    src/Utils/*.fs ==> fable/src/Utils
     src/Hooks/*.fs ==> fable/src/Hooks
     src/Tests/*.fs ==> fable/src/Tests

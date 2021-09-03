@@ -4,7 +4,6 @@ open System.Collections.Generic
 open Fable.Extras
 open System
 open FsStore.Model
-open FsStore.State
 open Microsoft.FSharp.Core.Operators
 open FsCore
 open FsJs
@@ -107,37 +106,3 @@ module BaseStore =
                 with get () = syncPaused
                 and set value = syncPaused <- value
 
-
-
-
-
-
-        let inline deleteRoot getter atom =
-            promise {
-                let alias = Atom.get getter Selectors.Gun.alias
-                let storeAtomPath = Atom.query (AtomReference.Atom atom)
-
-                let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
-
-                let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
-
-                match gunAtomNode with
-                | Some gunAtomNode ->
-                    let! putResult = Gun.put (gunAtomNode.back ()) (unbox null)
-                    Logger.logDebug (fun () -> $"Store.deleteRoot. putResult={putResult}")
-                | None -> failwith "Store.deleteRoot. invalid gun atom node"
-
-                match alias with
-                | Some (Gun.Alias alias) ->
-                    let hub = Atom.get getter Selectors.Hub.hub
-
-                    match hub with
-                    | Some hub ->
-                        let nodes = atomPath |> AtomPath.Value |> String.split "/"
-
-                        if nodes.Length > 3 then
-                            let rootAtomPath = nodes |> Array.take 3 |> String.concat "/"
-                            do! hub.sendAsPromise (Sync.Request.Set (alias, rootAtomPath, null))
-                    | _ -> Logger.logDebug (fun () -> "Store.deleteRoot. invalid hub. skipping")
-                | _ -> failwith "Store.deleteRoot. invalid alias"
-            }
