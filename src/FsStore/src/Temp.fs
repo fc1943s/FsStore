@@ -1,7 +1,7 @@
 namespace FsStore
 
 open FsJs
-open FsStore.Bindings.Jotai
+open FsStore.Model
 
 #nowarn "40"
 
@@ -19,7 +19,7 @@ module Temp =
         Profiling.measureTime
             "atom2"
             (fun () ->
-                let _atom2 = Atom.create (AtomType.Atom 0)
+                let _atom2 = Atom.Primitives.create (AtomType.Atom 0)
                 ())
 
         Profiling.measureTime

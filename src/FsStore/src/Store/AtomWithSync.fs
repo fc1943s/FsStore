@@ -6,7 +6,6 @@ open FsJs
 #nowarn "40"
 
 
-[<AutoOpen>]
 module AtomWithSync =
     module Store =
         //        let inline atomWithReducer<'TKey, 'TValue> atomkey (defaultValue: 'TValue) = ()

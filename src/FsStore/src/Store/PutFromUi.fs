@@ -5,18 +5,18 @@ open FsStore.Atom
 open FsStore.BaseStore.Store
 open FsStore.Model
 open FsStore.State
+open FsStore.Store.SyncEngine.Store
 open Microsoft.FSharp.Core.Operators
 open FsCore
 open FsJs
 open FsStore.Bindings
 
 
-[<AutoOpen>]
 module PutFromUi =
     module Store =
         let inline putFromUi<'TValue>
             (getDebugInfo: unit -> string)
-            (syncEngine: Store.SyncEngine<'TValue>)
+            (syncEngine: SyncEngine<'TValue>)
             (syncTrigger: TicksGuid * AdapterType * 'TValue option -> unit)
             (ticks, newValue)
             =

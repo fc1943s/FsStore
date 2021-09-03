@@ -7,12 +7,11 @@ open Microsoft.FSharp.Core.Operators
 open FsCore
 
 
-[<AutoOpen>]
 module AtomWithStorageSync =
     module Store =
         let inline atomWithStorageSync<'TKey, 'TValue when 'TValue: equality> storeAtomPath defaultValue =
-            let storageAtom = Atom.createRegisteredWithStorage storeAtomPath defaultValue
-            let syncAtom = Store.atomWithSync<'TKey, 'TValue> storeAtomPath defaultValue
+            let storageAtom = Atom.createWithStorage storeAtomPath defaultValue
+            let syncAtom = AtomWithSync.Store.atomWithSync<'TKey, 'TValue> storeAtomPath defaultValue
 
             let mutable lastSetAtom: ('TValue option -> unit) option = None
             let mutable lastValue = None

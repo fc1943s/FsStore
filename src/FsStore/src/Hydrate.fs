@@ -18,7 +18,7 @@ module Hydrate =
         Atom.set setter (State.Atoms.Message.ack messageId) (Some false)
         messageId
 
-    let inline hydrateFile setter (atomScope: AtomScope, hexString: string) =
+    let inline hydrateFile setter (hexString: string) =
         let chunkCount = int (Math.Ceiling (float hexString.Length / float fileChunkSize))
 
         match hexString, chunkCount with
@@ -51,7 +51,7 @@ module Hydrate =
                 Atom.set setter (Atoms.File.chunkCount fileId) chunkCount
 
                 chunks
-                |> Array.iteri (fun i chunk -> Store.scopedSet setter atomScope (Atoms.File.chunk, (fileId, i), chunk))
+                |> Array.iteri (fun i -> Atom.set setter (Atoms.File.chunk (fileId, i)))
 
                 Some fileId
             else

@@ -8,7 +8,6 @@ open FsJs
 open FsStore.Bindings
 
 
-[<AutoOpen>]
 module SetInternalFromSync =
     module Store =
         let inline setInternalFromSync getDebugInfo setAtom syncPaused lastValue onError (ticks, newValue, key) =

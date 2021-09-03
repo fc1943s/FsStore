@@ -11,7 +11,6 @@ open FsCore
 open FsJs
 
 
-[<AutoOpen>]
 module SyncEngine =
     module Store =
         [<RequireQualifiedAccess>]

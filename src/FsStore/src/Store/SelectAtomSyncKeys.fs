@@ -1,14 +1,13 @@
 namespace FsStore.Store
 
 open FsStore
+open FsStore.Model
 open Microsoft.FSharp.Core.Operators
 open FsJs
-open FsStore.Bindings.Jotai
 
 #nowarn "40"
 
 
-[<AutoOpen>]
 module SelectAtomSyncKeys =
     module Store =
         module Adapter =

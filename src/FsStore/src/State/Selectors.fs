@@ -6,7 +6,6 @@ open Fable.Core
 open FsCore
 open FsCore.BaseModel
 open FsStore.Bindings.Gun
-open FsStore.Bindings.Jotai
 open FsStore.Model
 open FsStore
 open Microsoft.FSharp.Core.Operators
@@ -40,19 +39,16 @@ module rec Sync =
 module SelectorsMagic =
     module Selectors =
         let rec deviceInfo =
-            Atom.createRegistered
-                (RootAtomPath (FsStore.storeRoot, AtomName (nameof deviceInfo)))
-                (AtomType.ReadSelector (fun _ -> Dom.deviceInfo))
+            Atom.readSelector (RootAtomPath (FsStore.storeRoot, AtomName (nameof deviceInfo))) (fun _ -> Dom.deviceInfo)
 
         let rec logger =
-            Atom.createRegistered
+            Atom.readSelector
                 (RootAtomPath (FsStore.storeRoot, AtomName (nameof logger)))
-                (AtomType.ReadSelector
-                    (fun getter ->
-                        let logLevel = Atom.get getter Atoms.logLevel
-                        let logger = Logger.Logger.Create logLevel
-                        Logger.State.lastLogger <- logger
-                        logger))
+                (fun getter ->
+                    let logLevel = Atom.get getter Atoms.logLevel
+                    let logger = Logger.Logger.Create logLevel
+                    Logger.State.lastLogger <- logger
+                    logger)
 
         let rec store =
             let mutable lastValue = 0
@@ -94,18 +90,17 @@ module SelectorsMagic =
                             (fun () ->
                                 $"{nameof FsStore} | Selectors.store [ valueWrapper.onUnmount() ] lastValue={lastValue}"))
 
-            Atom.createRegistered
+            Atom.readSelector
                 (RootAtomPath (FsStore.storeRoot, AtomName (nameof store)))
-                (AtomType.ReadSelector
-                    (fun getter ->
-                        let value = Atom.get getter valueWrapper
-                        let accessors = Atom.get getter accessorsAtom
+                (fun getter ->
+                    let value = Atom.get getter valueWrapper
+                    let accessors = Atom.get getter accessorsAtom
 
-                        Profiling.addTimestamp
-                            (fun () ->
-                                $"{nameof FsStore} | Selectors.store [ wrapper.read(getter) ] value={value} accessors={accessors.IsSome}")
+                    Profiling.addTimestamp
+                        (fun () ->
+                            $"{nameof FsStore} | Selectors.store [ wrapper.read(getter) ] value={value} accessors={accessors.IsSome}")
 
-                        accessors))
+                    accessors)
 
 
 
@@ -113,9 +108,7 @@ module SelectorsMagic =
             let collection = Collection (nameof Gun)
 
             let rec readSelector name fn =
-                Atom.createRegistered
-                    (IndexedAtomPath (FsStore.storeRoot, collection, [], AtomName name))
-                    (AtomType.ReadSelector fn)
+                Atom.readSelector (IndexedAtomPath (FsStore.storeRoot, collection, [], AtomName name)) fn
 
             let rec gunPeers =
                 readSelector
@@ -303,30 +296,28 @@ module SelectorsMagic =
             let rec gunAtomNode =
                 Atom.Primitives.atomFamily
                     (fun (alias: Alias option, AtomPath atomPath) ->
-                        Atom.create (
-                            AtomType.ReadSelector
-                                (fun getter ->
-                                    let gunNode =
-                                        match alias with
-                                        | Some _ -> Atom.get getter gunNamespace
-                                        | None -> Atom.get getter gun :> Types.IGunNode
+                        Atom.Primitives.readSelector
+                            (fun getter ->
+                                let gunNode =
+                                    match alias with
+                                    | Some _ -> Atom.get getter gunNamespace
+                                    | None -> Atom.get getter gun :> Types.IGunNode
 
-                                    let nodes =
-                                        atomPath
-                                        |> String.split "/"
-                                        |> Array.toList
-                                        |> List.map AtomKeyFragment
+                                let nodes =
+                                    atomPath
+                                    |> String.split "/"
+                                    |> Array.toList
+                                    |> List.map AtomKeyFragment
 
-                                    //                    let getNodeOld () =
-                                    //                        (Some (gunNamespace.get nodes.Head), nodes.Tail)
-                                    //                        ||> List.fold
-                                    //                                (fun result node ->
-                                    //                                    result
-                                    //                                    |> Option.map (fun result -> result.get node))
+                                //                    let getNodeOld () =
+                                //                        (Some (gunNamespace.get nodes.Head), nodes.Tail)
+                                //                        ||> List.fold
+                                //                                (fun result node ->
+                                //                                    result
+                                //                                    |> Option.map (fun result -> result.get node))
 
 
-                                    getRecursiveNode gunNode nodes getter alias)
-                        ))
+                                getRecursiveNode gunNode nodes getter alias))
 
             let rec adapterOptions =
                 readSelector
@@ -351,9 +342,7 @@ module SelectorsMagic =
             let collection = Collection (nameof Hub)
 
             let inline readSelector name fn =
-                Atom.createRegistered
-                    (IndexedAtomPath (FsStore.storeRoot, collection, [], AtomName name))
-                    (AtomType.ReadSelector fn)
+                Atom.readSelector (IndexedAtomPath (FsStore.storeRoot, collection, [], AtomName name)) fn
 
             let hubSubscriptionMap = Dictionary<Gun.Alias * StoreRoot * Collection, string [] -> unit> ()
 

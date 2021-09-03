@@ -13,11 +13,8 @@ open FsStore.Bindings
 #nowarn "40"
 
 
-[<AutoOpen>]
 module BaseStore =
     module Store =
-
-
         let testKeysCache = Dictionary<string, Set<string>> ()
 
         let inline splitAtomPath (AtomPath atomPath) =

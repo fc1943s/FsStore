@@ -4,7 +4,6 @@ open FsCore.BaseModel
 open FsStore.State
 open FsJs
 open FsStore
-open FsStore.Bindings.Jotai
 open FsStore.Model
 open Microsoft.FSharp.Core.Operators
 
@@ -15,7 +14,7 @@ module rec File =
     let fileReadSelectorFamily atomName fn =
         Atom.Primitives.atomFamily
             (fun (fileId: FileId) ->
-                Atom.createRegistered
+                Atom.create
                     (IndexedAtomPath (
                         FsStore.storeRoot,
                         Atoms.File.collection,

@@ -26,14 +26,14 @@ module rec File =
     let rec chunkCount =
         Atom.Primitives.atomFamily
             (fun fileId ->
-                Engine.createRegisteredAtomWithSubscription
+                Engine.createAtomWithSubscription
                     (IndexedAtomPath (FsStore.storeRoot, collection, formatFileId fileId, AtomName (nameof chunkCount)))
                     0)
 
     let rec chunk =
         Atom.Primitives.atomFamily
             (fun (fileId, index: int) ->
-                Engine.createRegisteredAtomWithSubscription
+                Engine.createAtomWithSubscription
                     (IndexedAtomPath (
                         FsStore.storeRoot,
                         collection,

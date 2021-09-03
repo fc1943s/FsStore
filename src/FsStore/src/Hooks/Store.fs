@@ -6,7 +6,7 @@ open FsJs
 open FsStore
 open FsStore.Model
 open FsStore.State
-open FsStore.Store
+open FsStore.Utils
 open Microsoft.FSharp.Core.Operators
 open Feliz
 open FsCore
@@ -23,7 +23,7 @@ module Store =
                 (fun () ->
                     match atom with
                     | Some atom -> atom
-                    | None -> Store.emptyAtom |> unbox<AtomConfig<'TValue5>>),
+                    | None -> Atom.empty |> unbox<AtomConfig<'TValue5>>),
                 [|
                     box atom
                 |]
@@ -40,12 +40,15 @@ module Store =
         let b = useValue b
         a, b
 
-    let inline useScopeState<'TValue7> (atom: InputAtom<'TValue7> option) (inputScope: InputScope<'TValue7> option) =
+    let inline useStateWithScope<'TValue7>
+        (atom: InputAtom<'TValue7> option)
+        (inputScope: InputScope<'TValue7> option)
+        =
         let logger = useValue Selectors.logger
 
         let currentAtomField, tempAtomField =
             React.useMemo (
-                (fun () -> Store.getAtomField atom (InputScope<_>.AtomScope inputScope)),
+                (fun () -> TempValue.getAtomField atom (InputScope<_>.AtomScope inputScope)),
                 [|
                     box atom
                     box inputScope
@@ -61,7 +64,7 @@ module Store =
 
                 let newTempValue =
                     match inputScope, tempValue |> Option.defaultValue None with
-                    | _, tempValue when tempValue = Some Store.___emptyTempAtom -> unbox null
+                    | _, tempValue when tempValue = Some TempValue.___emptyTempAtom -> unbox null
                     | _, None -> currentValue |> Option.defaultValue (unbox null)
                     | Some (InputScope.Temp (_, jsonDecode)), Some tempValue ->
                         try
@@ -88,7 +91,7 @@ module Store =
                         (fun newValue ->
                             setTempValue (
                                 match box newValue with
-                                | null -> Some Store.___emptyTempAtom
+                                | null -> Some TempValue.___emptyTempAtom
                                 | _ ->
                                     match inputScope with
                                     | Some (InputScope.Temp (jsonEncode, _)) -> Some (jsonEncode newValue)
@@ -137,7 +140,7 @@ module Store =
                 |]
             )
 
-        useScopeState<'T> inputAtom inputScope
+        useStateWithScope<'T> inputAtom inputScope
 
     let inline useAtomTempState<'T> (atom: AtomConfig<'T>) =
         let atomReference =

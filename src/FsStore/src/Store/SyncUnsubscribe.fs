@@ -6,7 +6,6 @@ open FsJs
 open FsStore.Bindings
 
 
-[<AutoOpen>]
 module SyncUnsubscribe =
     module Store =
         let inline syncUnsubscribe getDebugInfo gunAtomNode subscription success =

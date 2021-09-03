@@ -23,7 +23,7 @@ module rec Message =
     let inline messageAtomFamilyWithAdapters atomName defaultValue =
         Atom.Primitives.atomFamily
             (fun (messageId: MessageId) ->
-                Engine.createRegisteredAtomWithSubscription
+                Engine.createAtomWithSubscription
                     (IndexedAtomPath (FsStore.storeRoot, collection, formatMessageId messageId, atomName))
                     defaultValue)
 

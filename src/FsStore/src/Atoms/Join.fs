@@ -18,7 +18,7 @@ module rec Join =
         let rec internalAtomFamily =
             Atom.Primitives.atomFamily
                 (fun (atomPathGuidHash: Guid) ->
-                    Engine.createRegisteredAtomWithSubscription
+                    Engine.createAtomWithSubscription
                         (IndexedAtomPath (
                             FsStore.storeRoot,
                             collection,
@@ -66,6 +66,3 @@ module rec Join =
                                 $"Atoms.Join.joinAtom set() atomPath={atomPath} guidHash={guidHash} newValue={newValue}  newValueJson={newValueJson} ")
 
                         Atom.set setter atom newValueJson))
-
-
-    let rec tempValue = createJoinAtom (nameof tempValue)

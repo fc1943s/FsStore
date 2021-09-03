@@ -3,7 +3,6 @@ namespace FsStore.State.Atoms
 open FsCore.BaseModel
 open FsStore
 open FsStore.Bindings
-open FsStore.Bindings.Jotai
 open FsStore.Model
 
 #nowarn "40"
@@ -24,7 +23,7 @@ module rec Device =
     let rec devicePing =
         Atom.Primitives.atomFamily
             (fun (deviceId: DeviceId) ->
-                Engine.createRegisteredAtomWithSubscription
+                Engine.createAtomWithSubscription
                     (IndexedAtomPath (
                         FsStore.storeRoot,
                         collection,
@@ -36,7 +35,7 @@ module rec Device =
     let rec appState =
         Atom.Primitives.atomFamily
             (fun (deviceId: DeviceId) ->
-                Atom.createRegistered
+                Atom.create
                     (IndexedAtomPath (
                         FsStore.storeRoot,
                         collection,

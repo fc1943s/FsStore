@@ -20,7 +20,7 @@ module Model =
         | Temp
 
     type AtomConfig<'A> = Jotai.AtomConfig<'A>
-
+    type AtomType<'A> = Jotai.AtomType<'A>
     type Getter<'A> = Jotai.Getter<'A>
     type Setter<'A> = Jotai.Setter<'A>
 

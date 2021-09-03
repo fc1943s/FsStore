@@ -8,7 +8,6 @@ open FsCore.BaseModel
 open FsJs
 open FsStore.Bindings
 open FsStore.Bindings.Batcher
-open FsStore.Bindings.Jotai
 open FsStore.Model
 open FsCore
 open FsStore.State
@@ -80,24 +79,20 @@ module Engine =
     type StateMountFn<'A, 'S> = Getter<obj> -> Setter<obj> -> 'S -> ('A -> unit) -> JS.Promise<unit>
     type StateUnmountFn<'S> = Getter<obj> -> Setter<obj> -> 'S -> unit
 
+
+
     let inline wrapAtomWithState<'A, 'S when 'A: equality>
         (stateFn: StateFn<'S>)
         (mount: StateMountFn<'A, 'S>)
         (unmount: StateUnmountFn<'S>)
         (atom: AtomConfig<'A>)
         =
-        let storeAtomPath =
-            if Atom.isRegistered (AtomReference.Atom atom) then
-                Some (Atom.query (AtomReference.Atom atom))
-            else
-                None
-
         let mutable lastState: 'S option = None
 
         let mutable mounted = false
 
         let getDebugInfo () =
-            $" | atom={atom} mounted={mounted} storeAtomPath={storeAtomPath |> Option.map StoreAtomPath.AtomPath} lastState.IsSome={lastState.IsSome}  {getDebugInfo ()}"
+            $" | atom={atom} mounted={mounted} lastState.IsSome={lastState.IsSome}  {getDebugInfo ()}"
 
         let addTimestamp fn getDebugInfo =
             Profiling.addTimestamp
@@ -171,38 +166,35 @@ module Engine =
                     addTimestamp (fun () -> "[ refreshInternalState ](g7) invoking newUnmount") getDebugInfo
                     newUnmount ()
 
-        let wrapper =
-            Atom.Primitives.selector
-                (fun getter ->
-                    refreshInternalState getter
+        atom
+        |> Atom.wrap
+            (fun getter ->
+                refreshInternalState getter
 
-                    let result = Atom.get getter atom
-                    let getDebugInfo () = $"result={result}  {getDebugInfo ()}"
+                let result = Atom.get getter atom
+                let getDebugInfo () = $"result={result}  {getDebugInfo ()}"
 
-                    addTimestamp (fun () -> "[ wrapper.get() ](g8)") getDebugInfo
+                addTimestamp (fun () -> "[ wrapper.get() ](g8)") getDebugInfo
 
-                    result)
-                (fun _getter setter newValue ->
-                    //                    refreshInternalState getter
+                result)
+            (fun _getter setter newValue ->
+                //                    refreshInternalState getter
 
-                    let getDebugInfo () =
-                        $"newValue={newValue}  {getDebugInfo ()}"
+                let getDebugInfo () =
+                    $"newValue={newValue}  {getDebugInfo ()}"
 
-                    addTimestamp (fun () -> "[ wrapper.set() ](g9)") getDebugInfo
-                    Atom.set setter atom newValue)
-            |> Atom.addSubscription
-                false
-                (fun setAtom ->
-                    addTimestamp (fun () -> "[ addSubscription mount ](g10) invoking newMount") getDebugInfo
-                    lastSetAtom <- Some setAtom
-                    newMount ())
-                (fun () ->
-                    addTimestamp (fun () -> "[ addSubscription unmount ](g11) invoking newUnmount") getDebugInfo
-                    newUnmount ())
+                addTimestamp (fun () -> "[ wrapper.set() ](g9)") getDebugInfo
+                Atom.set setter atom newValue)
+        |> Atom.addSubscription
+            false
+            (fun setAtom ->
+                addTimestamp (fun () -> "[ addSubscription mount ](g10) invoking newMount") getDebugInfo
+                lastSetAtom <- Some setAtom
+                newMount ())
+            (fun () ->
+                addTimestamp (fun () -> "[ addSubscription unmount ](g11) invoking newUnmount") getDebugInfo
+                newUnmount ())
 
-        match storeAtomPath with
-        | Some storeAtomPath -> wrapper |> Atom.register storeAtomPath
-        | None -> wrapper
 
 
     let inline wrapAtom<'A when 'A: equality> (mount: MountFn<'A>) (unmount: UnmountFn) (atom: AtomConfig<'A>) =
@@ -734,7 +726,7 @@ module Engine =
                     -> (SubscriptionId * (Transaction -> unit)) option)
         (unmount: Getter<obj> -> (AtomConfig<obj> -> obj -> unit) -> Atom.AdapterOptions -> unit)
         : AtomConfig<Transaction option> =
-        let atom = Atom.create (AtomType.Atom None)
+        let atom = Atom.Primitives.create (AtomType.Atom None)
 
         let mutable setAdapterValue: (Transaction -> unit) option = None
 
@@ -743,7 +735,7 @@ module Engine =
 
         let addTimestamp fn getDebugInfo =
             Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithAdapter {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.createAtomWithAdapter {fn ()} | {getDebugInfo ()}")
 
         addTimestamp (fun () -> "[ constructor ](f1)") getDebugInfo
 
@@ -823,7 +815,8 @@ module Engine =
 
                                     if setAdapterValue.IsNone then
                                         addTimestamp
-                                            (fun () -> "[ setAdapterValue / setAtom ](f6+2) skipping assign from adapter. unmounted ")
+                                            (fun () ->
+                                                "[ setAdapterValue / setAtom ](f6+2) skipping assign from adapter. unmounted ")
                                             getDebugInfo
                                     else
                                         setAtom (Some (Transaction (fromUi, ticksGuid, value))))
@@ -923,7 +916,7 @@ module Engine =
 
         let addTimestamp fn getDebugInfo =
             Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.subscribeFamilyKey {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.subscribeCollection {fn ()} | {getDebugInfo ()}")
 
         if typeMetadataMap.ContainsKey atomType |> not then
             collectionTypeMap.[(storeRoot, collection)] <- collectionAtomType
@@ -980,7 +973,8 @@ module Engine =
 
             debouncedSync adapterValues
 
-        Atom.Primitives.readSelector
+        Atom.readSelector
+            storeAtomPath
             (fun getter ->
                 refreshAdapterValues getter
 
@@ -1006,9 +1000,7 @@ module Engine =
                 addTimestamp (fun () -> "[ wrapper.get() ](z3) ") getDebugInfo
 
                 result
-                |> Array.map (fun (KeyRef key) -> key |> unbox<'TKey>)
-
-                )
+                |> Array.map (fun (KeyRef key) -> key |> unbox<'TKey>))
         |> Atom.split
 
     let inline groupValues groupMap =
@@ -1035,7 +1027,7 @@ module Engine =
 
                 let addTimestamp fn getDebugInfo =
                     Profiling.addTimestamp
-                        (fun () -> $"{nameof FsStore} | Engine.groupMapAtom {fn ()} | {getDebugInfo ()}")
+                        (fun () -> $"{nameof FsStore} | Engine.groupMapFamily {fn ()} | {getDebugInfo ()}")
 
                 addTimestamp (fun () -> "[ constructor ](e3)") getDebugInfo
                 [])
@@ -1059,7 +1051,7 @@ module Engine =
                 | [] -> []
                 | _ -> groupMap |> groupValues)
 
-    let inline createRegisteredAtomWithGroup<'TGroup, 'A6 when 'A6: equality and 'TGroup :> IComparable and 'A6 :> IComparable>
+    let inline createAtomWithGroup<'TGroup, 'A6 when 'A6: equality and 'TGroup :> IComparable and 'A6 :> IComparable>
         (storeAtomPath: StoreAtomPath)
         (defaultGroup: 'TGroup, defaultValue: 'A6)
         : AtomConfig<('TGroup * (TicksGuid * 'A6)) list> =
@@ -1069,7 +1061,7 @@ module Engine =
 
         let addTimestamp fn getDebugInfo =
             Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.createRegisteredAtomWithGroup {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.createAtomWithGroup {fn ()} | {getDebugInfo ()}")
 
         addTimestamp (fun () -> "[ constructor ](d1)") getDebugInfo
 
@@ -1235,7 +1227,7 @@ module Engine =
             |> Promise.start
         | _ -> ()
 
-    let inline createRegisteredAtomWithSubscription<'A8 when 'A8: equality and 'A8 :> IComparable>
+    let inline createAtomWithSubscription<'A8 when 'A8: equality and 'A8 :> IComparable>
         storeAtomPath
         (defaultValue: 'A8)
         : AtomConfig<'A8> =
@@ -1258,10 +1250,10 @@ module Engine =
         let addTimestamp fn getDebugInfo =
             Profiling.addTimestamp
                 (fun () ->
-                    $"{nameof FsStore} | Engine.createRegisteredAtomWithSubscription {fn ()} | {getDebugInfo ()}")
+                    $"{nameof FsStore} | Engine.createAtomWithSubscription {fn ()} | {getDebugInfo ()}")
 
         let localAdaptersAtom =
-            createRegisteredAtomWithGroup storeAtomPath (Atom.AdapterType.Memory, (NotFromUi, defaultValue))
+            createAtomWithGroup storeAtomPath (Atom.AdapterType.Memory, (NotFromUi, defaultValue))
             |> Atom.map
                 (fun value ->
                     let result =
@@ -1384,82 +1376,83 @@ module Engine =
 
         wrapper |> Atom.register storeAtomPath
 
-    let inline bindAtom<'A9 when 'A9: equality> atom1 atom2 =
+    let inline createFamilyWithSubscription storeRoot collection name defaultValueFn formatFn =
+        Atom.Primitives.atomFamily
+            (fun param ->
+                createAtomWithSubscription
+                    (StoreAtomPath.IndexedAtomPath (storeRoot, collection, formatFn param, AtomName name))
+                    (defaultValueFn param))
+
+    let inline bindAtom<'A9 when 'A9: equality> atom1 (atom2: Jotai.AtomConfig<_>) =
         let mutable lastSetAtom: ('A9 option -> unit) option = None
         let mutable lastValue = None
 
-        let storeAtomPath = Atom.query (AtomReference.Atom atom1)
-
         let getDebugInfo () =
-            $"atom1={atom1} atom2={atom2} atomPath={storeAtomPath |> StoreAtomPath.AtomPath} lastValue={lastValue} {getDebugInfo ()}"
+            $"atom1={atom1} atom2={atom2} lastValue={lastValue} {getDebugInfo ()}"
 
         let addTimestamp fn getDebugInfo =
             Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.bindAtom {fn ()} | {getDebugInfo ()}")
 
         addTimestamp (fun () -> "[ constructor ](b1)") getDebugInfo
 
-        let rec wrapper =
-            Atom.Primitives.selector
-                (fun getter ->
-                    match atom1.init, atom2.init with
-                    | default1, default2 when default1 <> unbox null && default2 <> unbox null ->
-                        match Atom.get getter atom1, Atom.get getter atom2 with
-                        | value1, value2 when
-                            value1 |> Object.compare default1.Value
-                            && (value2 |> Object.compare default2.Value
-                                || lastValue.IsNone
-                                || (Atom.get getter Selectors.Gun.alias).IsNone)
+        atom1
+        |> Atom.wrap
+            (fun getter ->
+                match atom1.init, atom2.init with
+                | default1, default2 when default1 <> unbox null && default2 <> unbox null ->
+                    match Atom.get getter atom1, Atom.get getter atom2 with
+                    | value1, value2 when
+                        value1 |> Object.compare default1.Value
+                        && (value2 |> Object.compare default2.Value
+                            || lastValue.IsNone
+                            || (Atom.get getter Selectors.Gun.alias).IsNone)
+                        ->
+                        let getDebugInfo () =
+                            $"value1={value1} value2={value2} {getDebugInfo ()}"
+
+                        addTimestamp (fun () -> "[ wrapper.get() ](b2) choosing value2") getDebugInfo
+                        value2
+                    | value1, value2 ->
+                        let getDebugInfo () =
+                            $"value1={value1} value2={value2} {getDebugInfo ()}"
+
+                        match lastSetAtom with
+                        | Some lastSetAtom when
+                            lastValue.IsNone
+                            || lastValue |> Object.compare (Some value1) |> not
                             ->
-                            let getDebugInfo () =
-                                $"value1={value1} value2={value2} {getDebugInfo ()}"
+                            addTimestamp
+                                (fun () -> "[ wrapper.get() ](b3) different. triggering additional")
+                                getDebugInfo
 
-                            addTimestamp (fun () -> "[ wrapper.get() ](b2) choosing value2") getDebugInfo
-                            value2
-                        | value1, value2 ->
-                            let getDebugInfo () =
-                                $"value1={value1} value2={value2} {getDebugInfo ()}"
+                            lastValue <- Some value1
+                            lastSetAtom (Some value1)
+                        | _ -> ()
 
-                            match lastSetAtom with
-                            | Some lastSetAtom when
-                                lastValue.IsNone
-                                || lastValue |> Object.compare (Some value1) |> not
-                                ->
-                                addTimestamp
-                                    (fun () -> "[ wrapper.get() ](b3) different. triggering additional")
-                                    getDebugInfo
+                        addTimestamp (fun () -> "[ wrapper.get() ](b4) choosing value1") getDebugInfo
 
-                                lastValue <- Some value1
-                                lastSetAtom (Some value1)
-                            | _ -> ()
+                        value1
+                | _ -> failwith $"bindAtom. atoms without default value. {getDebugInfo ()}")
+            (fun _get setter newValue ->
+                let getDebugInfo () =
+                    $"newValue={newValue} {getDebugInfo ()}"
 
-                            addTimestamp (fun () -> "[ wrapper.get() ](b4) choosing value1") getDebugInfo
+                if lastValue.IsNone
+                   || lastValue |> Object.compare (Some newValue) |> not then
+                    lastValue <- Some newValue
+                    Atom.set setter atom1 newValue
 
-                            value1
-                    | _ -> failwith $"bindAtom. atoms without default value. {getDebugInfo ()}")
-                (fun _get setter newValue ->
-                    let getDebugInfo () =
-                        $"newValue={newValue} {getDebugInfo ()}"
+                    addTimestamp (fun () -> "[ wrapper.set() ](b5) setting atom1 and atom2") getDebugInfo
+                else
+                    addTimestamp (fun () -> "[ wrapper.set() ](b6) setting atom2 only") getDebugInfo
 
-                    if lastValue.IsNone
-                       || lastValue |> Object.compare (Some newValue) |> not then
-                        lastValue <- Some newValue
-                        Atom.set setter atom1 newValue
-
-                        addTimestamp (fun () -> "[ wrapper.set() ](b5) setting atom1 and atom2") getDebugInfo
-                    else
-                        addTimestamp (fun () -> "[ wrapper.set() ](b6) setting atom2 only") getDebugInfo
-
-                    Atom.set setter atom2 newValue)
-
-        wrapper?init <- atom1.init
-
-        wrapper |> Atom.register storeAtomPath
+                Atom.set setter atom2 newValue)
 
 
-    let inline createRegisteredAtomWithSubscriptionStorage storeAtomPath (defaultValue: 'A10) =
+    let inline createAtomWithSubscriptionStorage storeAtomPath (defaultValue: 'A10) =
         //        let storageAtom = Atom.createRegisteredWithStorage storeAtomPath (Guid.Empty, defaultValue)
-        let storageAtom = Atom.createRegisteredWithStorage<'A10> storeAtomPath defaultValue
-        let syncAtom = createRegisteredAtomWithSubscription storeAtomPath defaultValue
+        let storageAtom = Atom.createWithStorage<'A10> storeAtomPath defaultValue
+        let syncAtom = createAtomWithSubscription storeAtomPath defaultValue
         bindAtom<'A10> syncAtom storageAtom
 
     let inline getKeysFormatter fn id =
