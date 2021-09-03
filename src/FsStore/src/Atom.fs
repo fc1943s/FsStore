@@ -239,6 +239,12 @@ module Atom =
     let inline readSelector storeAtomPath read =
         selector storeAtomPath read (fun _ _ _ -> failwith "Atom.readSelector is read only.")
 
+    let inline selectorFamily storeAtomPath read write =
+        Primitives.atomFamily (fun param -> selector storeAtomPath read write)
+
+    let inline readSelectorFamily storeAtomPath read write =
+        selectorFamily storeAtomPath read (fun _ _ _ -> failwith "Atom.readSelectorFamily is read only.")
+
     let inline atomFamilyAtom defaultValueFn =
         Primitives.atomFamily (fun param -> Primitives.atom (defaultValueFn param))
 
