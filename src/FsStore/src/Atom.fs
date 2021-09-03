@@ -204,12 +204,14 @@ module Atom =
             )
 
         let inline asyncReadSelector<'A> (read: AsyncRead<'A>) =
-            asyncSelector read (fun _ _ _newValue -> promise { failwith "Atom.Primitives.asyncReadSelector is read only." })
+            asyncSelector
+                read
+                (fun _ _ _newValue -> promise { failwith "Atom.Primitives.asyncReadSelector is read only." })
 
         let inline asyncSelectorFamily<'TKey, 'A> (read: 'TKey -> AsyncRead<'A>) (write: 'TKey -> AsyncWrite<'A>) =
             atomFamily
                 (fun param ->
-                    Primitives.asyncSelector
+                    asyncSelector
                         (read param)
                         (fun getter setter newValue -> promise { do! write param getter setter newValue }))
 
@@ -239,13 +241,13 @@ module Atom =
                 (fun getter ->
                     let result = read getter
                     let getDebugInfo () = $"result={result} {getDebugInfo ()}"
-                    addTimestamp (fun () -> "[ get() ]") getDebugInfo
+                    addTimestamp (fun () -> "[ read() ]") getDebugInfo
                     result)
                 (fun getter setter newValue ->
                     let getDebugInfo () =
                         $"newValue={newValue} {getDebugInfo ()}"
 
-                    addTimestamp (fun () -> "[ set() ]") getDebugInfo
+                    addTimestamp (fun () -> "[ write() ]") getDebugInfo
                     write getter setter newValue)
 
         let getDebugInfo () = $"wrapper={wrapper} {getDebugInfo ()}"
@@ -263,18 +265,52 @@ module Atom =
     let inline readSelectorFamily storeAtomPath read =
         selectorFamily storeAtomPath read (fun _ _ _ -> failwith "Atom.readSelectorFamily is read only.")
 
-    let inline asyncReadSelector<'A> (read: AsyncRead<'A>) =
-        Primitives.asyncSelector read (fun _ _ _newValue -> promise { failwith "Atom.asyncReadSelector is read only." })
+    let inline asyncSelector<'A> storeAtomPath (read: AsyncRead<'A>) (write: AsyncWrite<'A>) =
+        let getDebugInfo () =
+            $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getDebugInfo ()}"
 
-    let inline asyncSelectorFamily<'TKey, 'A> (read: 'TKey -> AsyncRead<'A>) (write: 'TKey -> AsyncWrite<'A>) =
+        let addTimestamp fn getDebugInfo =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.asyncSelector {fn ()} | {getDebugInfo ()}")
+
+        Primitives.asyncSelector
+            (fun getter ->
+                promise {
+                    let! result = read getter
+                    let getDebugInfo () = $"result={result} {getDebugInfo ()}"
+                    addTimestamp (fun () -> "[ read() ]") getDebugInfo
+                    return result
+                })
+            (fun getter setter newValue ->
+                promise {
+                    do! write getter setter newValue
+
+                    let getDebugInfo () =
+                        $"newValue={newValue} {getDebugInfo ()}"
+
+                    addTimestamp (fun () -> "[ write() ]") getDebugInfo
+                })
+
+    let inline asyncReadSelector<'A> storeAtomPath (read: AsyncRead<'A>) =
+        asyncSelector
+            storeAtomPath
+            read
+            (fun _ _ _newValue -> promise { failwith "Atom.asyncReadSelector is read only." })
+
+    let inline asyncSelectorFamily<'TKey, 'A>
+        storeAtomPath
+        (read: 'TKey -> AsyncRead<'A>)
+        (write: 'TKey -> AsyncWrite<'A>)
+        =
         Primitives.atomFamily
             (fun param ->
-                Primitives.asyncSelector
+                asyncSelector
+                    storeAtomPath
                     (read param)
                     (fun getter setter newValue -> promise { do! write param getter setter newValue }))
 
-    let inline asyncReadSelectorFamily<'TKey, 'A> (read: 'TKey -> AsyncRead<'A>) =
+    let inline asyncReadSelectorFamily<'TKey, 'A> storeAtomPath (read: 'TKey -> AsyncRead<'A>) =
         asyncSelectorFamily
+            storeAtomPath
             read
             (fun _key _ _ _newValue -> promise { failwith "Atom.asyncReadSelectorFamily is read only." })
 
