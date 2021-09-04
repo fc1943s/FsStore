@@ -2,5 +2,6 @@ FSharp.Core
 
 FsCore
 FsJs
+FsBeacon.Shared
 
 Fable.SignalR

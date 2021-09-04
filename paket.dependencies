@@ -8,6 +8,7 @@ nuget FSharp.Core ~> 5.0
 
 nuget FsCore ~> 0.0 prerelease
 nuget FsJs ~> 0.0 prerelease
+nuget FsBeacon.Shared ~> 0.0 prerelease
 
 // FsStore
 nuget Fable.SignalR ~> 0.11
