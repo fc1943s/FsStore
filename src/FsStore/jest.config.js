@@ -11,4 +11,5 @@ module.exports = {
     '\\.js$': ['babel-jest', { configFile: './_babel.config.json' }]
   },
   testMatch: ["**/*.test.fs.js"],
+  testPathIgnorePatterns: [".fable"]
 };

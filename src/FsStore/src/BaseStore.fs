@@ -6,7 +6,6 @@ open System
 open FsStore.Model
 open Microsoft.FSharp.Core.Operators
 open FsCore
-open FsJs
 open FsStore.Bindings
 
 #nowarn "40"
