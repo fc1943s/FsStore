@@ -158,12 +158,13 @@ module rec Auth =
         let getLocals () =
             $"privateKeys.IsSome={privateKeys.IsSome}"
 
-        let inline logDebug fn getLocals =
-            logger.Debug (fun () -> $"Auth.useGunAliasLoader {fn ()} {getLocals ()}")
 
         React.useEffect (
             (fun () ->
                 promise {
+                    let logDebug fn getLocals =
+                        logger.Debug (fun () -> $"Auth.useGunAliasLoader {fn ()} {getLocals ()}")
+
                     match privateKeys with
                     | Some privateKeys ->
                         let! data = Gun.aliasRadQuery gun
@@ -183,6 +184,7 @@ module rec Auth =
                 }
                 |> Promise.start),
             [|
+                box setInternalAlias
                 box gun
                 box privateKeys
                 box logger
