@@ -1473,32 +1473,24 @@ module Engine =
             | _ -> None
         | _ -> None
 
-    let inline deleteParent getter atom =
+    let inline delete getter storeAtomPath =
         promise {
             let alias = Atom.get getter Selectors.Gun.alias
-            let storeAtomPath = Atom.query (AtomReference.Atom atom)
-
             let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
-
             let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
 
             match gunAtomNode with
             | Some gunAtomNode ->
-                let! putResult = Gun.put (gunAtomNode.back ()) (unbox null)
-                Logger.logDebug (fun () -> $"Engine.deleteParent. putResult={putResult}")
-            | None -> failwith "Engine.deleteParent. invalid gun atom node"
+                let! putResult = Gun.put gunAtomNode (unbox null)
+                Logger.logDebug (fun () -> $"Engine.delete. putResult={putResult}")
+            | None -> failwith "Engine.delete. invalid gun atom node"
 
             match alias with
             | Some (Gun.Alias alias) ->
                 let hub = Atom.get getter Selectors.Hub.hub
 
                 match hub with
-                | Some hub ->
-                    let nodes = atomPath |> AtomPath.Value |> String.split "/"
-
-                    if nodes.Length > 3 then
-                        let rootAtomPath = nodes |> Array.take 3 |> String.concat "/"
-                        do! hub.sendAsPromise (Sync.Request.Set (alias, rootAtomPath, null))
-                | _ -> Logger.logDebug (fun () -> "Engine.deleteParent. invalid hub. skipping")
-            | _ -> failwith "Engine.deleteParent. invalid alias"
+                | Some hub -> do! hub.sendAsPromise (Sync.Request.Set (alias, atomPath |> AtomPath.Value, null))
+                | _ -> Logger.logDebug (fun () -> "Engine.delete. invalid hub. skipping")
+            | _ -> failwith "Engine.delete. invalid alias"
         }
