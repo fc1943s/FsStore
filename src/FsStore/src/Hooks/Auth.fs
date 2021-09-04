@@ -158,7 +158,7 @@ module rec Auth =
         let getLocals () =
             $"privateKeys.IsSome={privateKeys.IsSome}"
 
-        let logDebug fn getLocals =
+        let inline logDebug fn getLocals =
             logger.Debug (fun () -> $"Auth.useGunAliasLoader {fn ()} {getLocals ()}")
 
         React.useEffect (
