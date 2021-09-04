@@ -16,7 +16,7 @@ open FsStore.Bindings
 module SyncSubscribe =
     module Store =
         let inline syncSubscribe
-            getDebugInfo
+            getLocals
             (syncEngine: SyncEngine<_>)
             (syncState: SyncState<'TValue>)
             (trigger: TicksGuid * Atom.AdapterType * 'TValue option -> unit)
@@ -28,13 +28,13 @@ module SyncSubscribe =
                 | _, Some _ ->
                     Logger.logTrace
                         (fun () ->
-                            $"Store.syncSubscribe. skipping subscribe, lastSubscription is set. {getDebugInfo ()} ")
+                            $"Store.syncSubscribe. skipping subscribe, lastSubscription is set. {getLocals ()} ")
                 | Some gunAtomNode, None ->
                     let gunKeys =
                         let user = gunAtomNode.user ()
                         user.__.sea
 
-                    Logger.logTrace (fun () -> $"Store.syncSubscribe. batch subscribing. {getDebugInfo ()} ")
+                    Logger.logTrace (fun () -> $"Store.syncSubscribe. batch subscribing. {getLocals ()} ")
 
                     //                    gunAtomNode.off () |> ignore
 
@@ -59,13 +59,13 @@ module SyncSubscribe =
                                                     promise {
                                                         Logger.logTrace
                                                             (fun () ->
-                                                                $"Store.syncSubscribe. wrapper.next() HUB stream subscribe] msg={msg} {getDebugInfo ()} ")
+                                                                $"Store.syncSubscribe. wrapper.next() HUB stream subscribe] msg={msg} {getLocals ()} ")
 
                                                         match msg with
                                                         | Sync.Response.GetResult result ->
                                                             Logger.logTrace
                                                                 (fun () ->
-                                                                    $"Store.syncSubscribe. Sync.Response.GetResult  atomPath={atomPath} {getDebugInfo ()} ")
+                                                                    $"Store.syncSubscribe. Sync.Response.GetResult  atomPath={atomPath} {getLocals ()} ")
 
                                                             let! newValue =
                                                                 match result |> Option.defaultValue null with
@@ -91,7 +91,7 @@ module SyncSubscribe =
                                                 (fun ex ->
                                                     Logger.logError
                                                         (fun () ->
-                                                            $"Store.syncSubscribe. onError... ex={ex} {getDebugInfo ()} ")
+                                                            $"Store.syncSubscribe. onError... ex={ex} {getLocals ()} ")
 
                                                     onError ())
 
@@ -104,7 +104,7 @@ module SyncSubscribe =
                                             $"Store.syncSubscribe. hub.get, setInternalFromGun, ex.Message={ex.Message} ex={ex}")
                             }
                             |> Promise.start
-                        | None -> Logger.logTrace (fun () -> $"Store.syncSubscribe. skipping...{getDebugInfo ()} ")
+                        | None -> Logger.logTrace (fun () -> $"Store.syncSubscribe. skipping...{getLocals ()} ")
 
                         match syncEngine.GetGunOptions (), syncEngine.GetAtomPath () with
                         | Some (GunOptions.Sync _), Some (AtomPath _atomPath) ->
@@ -136,7 +136,7 @@ module SyncSubscribe =
                                             Logger.logTrace
                                                 (fun () ->
                                                     $"Store.syncSubscribe. debouncedPut() HUB (update from gun) SKIPPED
-                                                    newValue={newValue} jsTypeof-newValue={jsTypeof newValue} {getDebugInfo ()}")
+                                                    newValue={newValue} jsTypeof-newValue={jsTypeof newValue} {getLocals ()}")
                                         else
                                             match syncEngine.GetAtomPath (),
                                                   syncEngine.GetHub (),
@@ -159,7 +159,7 @@ module SyncSubscribe =
                                                                 Logger.logTrace
                                                                     (fun () ->
                                                                         $"Store.syncSubscribe. subscribe() hub set from gun
-                                        newValue={newValue} jsTypeof-newValue={jsTypeof newValue} {getDebugInfo ()}")
+                                        newValue={newValue} jsTypeof-newValue={jsTypeof newValue} {getLocals ()}")
 
                                                                 trigger (ticks, Atom.AdapterType.Hub, newValue)
                                                         | response ->
@@ -176,16 +176,16 @@ module SyncSubscribe =
                                             | _ ->
                                                 Logger.logTrace
                                                     (fun () ->
-                                                        $"Store.syncSubscribe. [$$$$ wrapper.on() HUB put] skipping. newValue={newValue}. {getDebugInfo ()} ")
+                                                        $"Store.syncSubscribe. [$$$$ wrapper.on() HUB put] skipping. newValue={newValue}. {getLocals ()} ")
                                     })
 
                             syncState.GunSubscription <- Some DateTime.Now.Ticks
-                        | _ -> Logger.logTrace (fun () -> $"Store.syncSubscribe. skipping. {getDebugInfo ()} ")
+                        | _ -> Logger.logTrace (fun () -> $"Store.syncSubscribe. skipping. {getLocals ()} ")
                     | _ ->
-                        Logger.logTrace (fun () -> $"Store.syncSubscribe. skipping. gun keys empty {getDebugInfo ()} ")
+                        Logger.logTrace (fun () -> $"Store.syncSubscribe. skipping. gun keys empty {getLocals ()} ")
 
                 | None, _ ->
                     Logger.logTrace
                         (fun () ->
-                            $"Store.syncSubscribe. skipping subscribe, no gun atom node. (maybe no alias) {getDebugInfo ()} ")
+                            $"Store.syncSubscribe. skipping subscribe, no gun atom node. (maybe no alias) {getLocals ()} ")
             }

@@ -38,7 +38,7 @@ module AtomWithSync =
 //            let syncState = SyncState<'TValue> ()
 //            let atomPath = atomKey |> AtomKey.AtomPath
 //
-//            let getDebugInfo () =
+//            let getLocals () =
 //                $"""
 //    | atomWithSync debugInfo:
 //    syncState={Json.encodeWithNull syncState}
@@ -88,7 +88,7 @@ module AtomWithSync =
 //                    (fun oldAdapterValueMap ->
 //                        Logger.logDebug
 //                            (fun () ->
-//                                $"Store.atomWithSync. syncTrigger. setter. oldAdapterValueMap={oldAdapterValueMap} newValue={newValue}. {getDebugInfo ()}")
+//                                $"Store.atomWithSync. syncTrigger. setter. oldAdapterValueMap={oldAdapterValueMap} newValue={newValue}. {getLocals ()}")
 //
 //                        oldAdapterValueMap
 //                        |> (match newValue with
@@ -139,10 +139,10 @@ module AtomWithSync =
 //
 //                            Logger.logDebug
 //                                (fun () ->
-//                                    $"Store.atomWithSync. subscribe on trigger. @@@ should call setAtom? {getDebugInfo ()}")
+//                                    $"Store.atomWithSync. subscribe on trigger. @@@ should call setAtom? {getLocals ()}")
 //
 //                            Store.setInternalFromSync
-//                                getDebugInfo
+//                                getLocals
 //                                trigger
 //                                syncState.SyncPaused
 //                                lastValue
@@ -155,19 +155,19 @@ module AtomWithSync =
 //
 //                        JS.setTimeout
 //                            (fun () ->
-//                                Store.syncSubscribe getDebugInfo syncEngine syncState trigger onError atomPath
+//                                Store.syncSubscribe getLocals syncEngine syncState trigger onError atomPath
 //                                |> Promise.start)
 //                            1000
 //                        |> ignore
 //
-//                    do! Store.syncSubscribe getDebugInfo syncEngine syncState trigger onError atomPath
+//                    do! Store.syncSubscribe getLocals syncEngine syncState trigger onError atomPath
 //
 //                    return
 //                        Object.newDisposable
 //                            (fun () ->
 //                                Logger.logDebug
 //                                    (fun () ->
-//                                        $"AtomWithSync.subscribe. newDisposable. subscriptionId={subscriptionId} {getDebugInfo ()} "))
+//                                        $"AtomWithSync.subscribe. newDisposable. subscriptionId={subscriptionId} {getLocals ()} "))
 //                        |> Some
 //                }
 //
@@ -175,7 +175,7 @@ module AtomWithSync =
 //                Batcher.batch (
 //                    Batcher.BatchType.Set (
 //                        ticks,
-//                        (fun ticks -> Store.putFromUi getDebugInfo syncEngine syncTrigger (ticks, newValue))
+//                        (fun ticks -> Store.putFromUi getLocals syncEngine syncTrigger (ticks, newValue))
 //                    )
 //                )
 //
@@ -211,7 +211,7 @@ module AtomWithSync =
 //                                    .StartsWith "Ping " then
 //                                    null
 //                                else
-//                                    $"Store.atomWithSync. atomFamily.wrapper.get() wrapper={wrapper} userAtom={userAtom} result={result} {getDebugInfo ()}               ")
+//                                    $"Store.atomWithSync. atomFamily.wrapper.get() wrapper={wrapper} userAtom={userAtom} result={result} {getLocals ()}               ")
 //
 //                        Logger.logTrace
 //                            (fun () ->
@@ -221,7 +221,7 @@ module AtomWithSync =
 //                                    .StartsWith "Ping " then
 //                                    null
 //                                else
-//                                    $"Store.atomWithSync. atomFamily.wrapper.get() wrapper={wrapper} userAtom={userAtom} result={result} {getDebugInfo ()}               ")
+//                                    $"Store.atomWithSync. atomFamily.wrapper.get() wrapper={wrapper} userAtom={userAtom} result={result} {getLocals ()}               ")
 //
 //                        let userAtomId = Some (userAtom.toString ())
 //
@@ -232,13 +232,13 @@ module AtomWithSync =
 //                            | None ->
 //                                Logger.logTrace
 //                                    (fun () ->
-//                                        $"Store.atomWithSync. atomFamily.wrapper.get() subscribing wrapper={wrapper} userAtom={userAtom} {getDebugInfo ()}                       ")
+//                                        $"Store.atomWithSync. atomFamily.wrapper.get() subscribing wrapper={wrapper} userAtom={userAtom} {getLocals ()}                       ")
 //
 //                            //                                debouncedSubscribe ()
 //                            | _ ->
 //                                Logger.logTrace
 //                                    (fun () ->
-//                                        $"Store.atomWithSync. atomFamily.wrapper.get() skipping subscribe wrapper={wrapper} userAtom={userAtom} {getDebugInfo ()}                           ")
+//                                        $"Store.atomWithSync. atomFamily.wrapper.get() skipping subscribe wrapper={wrapper} userAtom={userAtom} {getLocals ()}                           ")
 //
 //                        result)
 //                    (fun getter setter newValueFn ->
@@ -287,7 +287,7 @@ module AtomWithSync =
 //       && unbox gunValue = unbox hubValue}
 //    z={box newValueOption = box gunValue
 //       && box gunValue = box hubValue}
-//    {getDebugInfo ()}                                           ")
+//    {getLocals ()}                                           ")
 //
 //
 //
@@ -296,7 +296,7 @@ module AtomWithSync =
 //                                    Logger.logTrace
 //                                        (fun () ->
 //                                            $"<filter> Store.atomWithSync. atomFamily.wrapper.set(). skipped debouncedPut
-//    wrapper={wrapper} oldAdapterValueMap={oldAdapterValueMap} newValue={newValue} jsTypeof-newValue={jsTypeof newValue} {getDebugInfo ()} ")
+//    wrapper={wrapper} oldAdapterValueMap={oldAdapterValueMap} newValue={newValue} jsTypeof-newValue={jsTypeof newValue} {getLocals ()} ")
 //                                else
 //
 //                                    syncState.SyncPaused <- true
@@ -319,7 +319,7 @@ module AtomWithSync =
 //                (fun () ->
 //                    $"Store.atomWithSync constructor
 //    adapterValueMapAtom[alias]={(adapterValueMapAtom (syncEngine.GetAlias ()))}
-//    lastSyncValueByTypeAtom[alias]={(lastSyncValueByTypeAtom (syncEngine.GetAlias ()))} wrapper={wrapper} {getDebugInfo ()}")
+//    lastSyncValueByTypeAtom[alias]={(lastSyncValueByTypeAtom (syncEngine.GetAlias ()))} wrapper={wrapper} {getLocals ()}")
 //
 //            //            if atomKey.Keys
 ////               <> (string Guid.Empty |> List.singleton) then
@@ -328,7 +328,7 @@ module AtomWithSync =
 ////
 ////                                       fun () ->
 ////                                           Store.syncUnsubscribe
-////                                               getDebugInfo
+////                                               getLocals
 ////                                               (syncEngine.GetGunAtomNode ())
 ////                                               syncState.GunSubscription
 ////                                               (fun () -> syncState.GunSubscription <- None)
@@ -339,14 +339,14 @@ module AtomWithSync =
 //
 //                    Logger.logTrace
 //                        (fun () ->
-//                            $"Store.atomWithSync. gunAtomNode found. calling off(). (actually skipped) subscriptionId={_subscriptionId} {getDebugInfo ()} ")
+//                            $"Store.atomWithSync. gunAtomNode found. calling off(). (actually skipped) subscriptionId={_subscriptionId} {getLocals ()} ")
 //
 //                //                    gunAtomNode.off () |> ignore
 //                //                    lastSubscription <- None
 //                | None ->
 //                    Logger.logTrace
 //                        (fun () ->
-//                            $"Store.atomWithSync. skipping unsubscribe, no gun atom node. subscriptionId={_subscriptionId} {getDebugInfo ()} ")
+//                            $"Store.atomWithSync. skipping unsubscribe, no gun atom node. subscriptionId={_subscriptionId} {getLocals ()} ")
 //
 //
 //

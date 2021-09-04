@@ -65,7 +65,7 @@ module SelectAtomSyncKeys =
 //            let syncEngine = Store.SyncEngine ([||], Some (fun node -> node.back().back ()))
 //
 //
-//            let getDebugInfo () =
+//            let getLocals () =
 //                $"""
 //    | selectAtomSyncKeys debugInfo:
 //    syncEngine={Json.encodeWithNull syncEngine}
@@ -97,7 +97,7 @@ module SelectAtomSyncKeys =
 //
 //                        Logger.logTrace
 //                            (fun () ->
-//                                $"Store.selectAtomSyncKeys wrapper.get() wrapper={wrapper} result={result} {getDebugInfo ()} ")
+//                                $"Store.selectAtomSyncKeys wrapper.get() wrapper={wrapper} result={result} {getLocals ()} ")
 //
 //                        result)
 //                    (fun getter setter newValueFn ->
@@ -113,7 +113,7 @@ module SelectAtomSyncKeys =
 //                                    Logger.logTrace
 //                                        (fun () ->
 //                                            $"Store.selectAtomSyncKeys wrapper.set() oldValue={oldValue} newValue={newValue}
-//                                            newValueFn={newValueFn} wrapper={wrapper} {getDebugInfo ()} ")
+//                                            newValueFn={newValueFn} wrapper={wrapper} {getLocals ()} ")
 //
 //                                    newValue)))
 //
@@ -153,7 +153,7 @@ module SelectAtomSyncKeys =
 //
 //                        Logger.logTrace
 //                            (fun () ->
-//                                $"Store.selectAtomSyncKeys. batchKeys callback. items.len={items.Length} atomPath={atomPath} key={key} {getDebugInfo ()} ")
+//                                $"Store.selectAtomSyncKeys. batchKeys callback. items.len={items.Length} atomPath={atomPath} key={key} {getLocals ()} ")
 //
 //                        items)
 //                    setAtom
@@ -165,7 +165,7 @@ module SelectAtomSyncKeys =
 //                    | _, Some _ ->
 //                        Logger.logTrace
 //                            (fun () ->
-//                                $"Store.selectAtomSyncKeys subscribe. skipping subscribe, lastSubscription is set. key={key} {getDebugInfo ()} ")
+//                                $"Store.selectAtomSyncKeys subscribe. skipping subscribe, lastSubscription is set. key={key} {getLocals ()} ")
 //
 //                        return None
 //                    | Some gunAtomNode, None ->
@@ -188,7 +188,7 @@ module SelectAtomSyncKeys =
 //                                                (fun () ->
 //                                                    $"Store.selectAtomSyncKeys subscribe. gun.map().on() result (inside disposable)
 //                                          data={data} typeof data={jsTypeof data} gunKey={gunKey} typeof gunKey={jsTypeof gunKey}
-//                                          atomPath={atomPath} syncEngine.atomPath={syncEngine.GetAtomPath ()} key={key} {getDebugInfo ()} ")
+//                                          atomPath={atomPath} syncEngine.atomPath={syncEngine.GetAtomPath ()} key={key} {getLocals ()} ")
 //
 //                                            match data with
 //                                            | Gun.GunValue.EncryptedSignedValue (Gun.EncryptedSignedValue (String.Valid _)) ->
@@ -227,7 +227,7 @@ module SelectAtomSyncKeys =
 //                            | _ ->
 //                                Logger.logTrace
 //                                    (fun () ->
-//                                        $"Store.selectAtomSyncKeys subscribe. gun.map().on() skipped. gun sync options disabled. (inside disposable) key={key} {getDebugInfo ()} ")
+//                                        $"Store.selectAtomSyncKeys subscribe. gun.map().on() skipped. gun sync options disabled. (inside disposable) key={key} {getLocals ()} ")
 //
 //                                None
 //
@@ -259,7 +259,7 @@ module SelectAtomSyncKeys =
 //                                                        (fun () ->
 //                                                            $"Store.selectAtomSyncKeys subscribe. hub data received (inside disposable)
 //                                                                          setting keys locally. items.Length={items.Length}
-//                                                                          atomPath={atomPath} syncEngine.atomPath={syncEngine.GetAtomPath ()} key={key} {getDebugInfo ()} ")
+//                                                                          atomPath={atomPath} syncEngine.atomPath={syncEngine.GetAtomPath ()} key={key} {getLocals ()} ")
 //
 //                                                    batchKeysAtom
 //                                                        (Guid.newTicksGuid (), items |> Array.map onFormat)
@@ -268,7 +268,7 @@ module SelectAtomSyncKeys =
 //                                                    Logger.logTrace
 //                                                        (fun () ->
 //                                                            $"Store.selectAtomSyncKeys subscribe. skipping key batch. items.Length=0
-//                                                                          atomPath={atomPath} syncEngine.atomPath={syncEngine.GetAtomPath ()} key={key} {getDebugInfo ()} ")
+//                                                                          atomPath={atomPath} syncEngine.atomPath={syncEngine.GetAtomPath ()} key={key} {getLocals ()} ")
 //
 //
 //                                            Selectors.Hub.hubSubscriptionMap.[collectionPath] <- handle
@@ -280,7 +280,7 @@ module SelectAtomSyncKeys =
 //                                                (fun (ticks, response: Sync.Response) ->
 //                                                    Logger.logTrace
 //                                                        (fun () ->
-//                                                            $"Store.selectAtomSyncKeys [wrapper.next() HUB keys stream subscribe] ticks={ticks} {getDebugInfo ()} response={response}")
+//                                                            $"Store.selectAtomSyncKeys [wrapper.next() HUB keys stream subscribe] ticks={ticks} {getLocals ()} response={response}")
 //
 //                                                    promise {
 //                                                        match response with
@@ -289,7 +289,7 @@ module SelectAtomSyncKeys =
 //
 //                                                            Logger.logTrace
 //                                                                (fun () ->
-//                                                                    $"Store.selectAtomSyncKeys [wrapper.on() HUB KEYS subscribe] atomPath={atomPath} items={JS.JSON.stringify items} {getDebugInfo ()} ")
+//                                                                    $"Store.selectAtomSyncKeys [wrapper.on() HUB KEYS subscribe] atomPath={atomPath} items={JS.JSON.stringify items} {getLocals ()} ")
 //                                                        | response ->
 //                                                            Logger.logError
 //                                                                (fun () ->
@@ -317,7 +317,7 @@ module SelectAtomSyncKeys =
 //                            | _ ->
 //                                Logger.logTrace
 //                                    (fun () ->
-//                                        $"Store.selectAtomSyncKeys subscribe. hub skipped. hub sync options disabled. (inside disposable) key={key} {getDebugInfo ()}")
+//                                        $"Store.selectAtomSyncKeys subscribe. hub skipped. hub sync options disabled. (inside disposable) key={key} {getLocals ()}")
 //
 //                                None
 //
@@ -329,7 +329,7 @@ module SelectAtomSyncKeys =
 //                                        promise {
 //                                            Logger.logDebug
 //                                                (fun () ->
-//                                                    $"Store.selectAtomSyncKeys subscribe. returning disposable... subscriptionId={subscriptionId} atomPath={atomPath} key={key} {getDebugInfo ()} ")
+//                                                    $"Store.selectAtomSyncKeys subscribe. returning disposable... subscriptionId={subscriptionId} atomPath={atomPath} key={key} {getLocals ()} ")
 //
 //
 //
@@ -351,7 +351,7 @@ module SelectAtomSyncKeys =
 //                    | None, _ ->
 //                        Logger.logTrace
 //                            (fun () ->
-//                                $"Store.selectAtomSyncKeys subscribe. skipping, no gun atom node. {getDebugInfo ()}")
+//                                $"Store.selectAtomSyncKeys subscribe. skipping, no gun atom node. {getLocals ()}")
 //
 //                        return None
 //
@@ -376,14 +376,14 @@ module SelectAtomSyncKeys =
 //
 //                    Logger.logTrace
 //                        (fun () ->
-//                            $"Store.selectAtomSyncKeys. gunAtomNode found. calling off(). key={key} subscriptionId={_subscriptionId} {getDebugInfo ()} ")
+//                            $"Store.selectAtomSyncKeys. gunAtomNode found. calling off(). key={key} subscriptionId={_subscriptionId} {getLocals ()} ")
 //
 //                    gunAtomNode.off () |> ignore
 //                //                    lastSubscription <- None
 //                | None ->
 //                    Logger.logTrace
 //                        (fun () ->
-//                            $"Store.selectAtomSyncKeys [atomKeys gun.off()] skipping unsubscribe, no gun atom node. subscriptionId={_subscriptionId} {getDebugInfo ()} ")
+//                            $"Store.selectAtomSyncKeys [atomKeys gun.off()] skipping unsubscribe, no gun atom node. subscriptionId={_subscriptionId} {getLocals ()} ")
 //
 //
 //            let atom1 = jotai.atom 0
@@ -392,7 +392,7 @@ module SelectAtomSyncKeys =
 //                                   let getter, setter = syncEngine.GetStore ()
 //                                   let value = Atom.value getter atom1
 //
-//                                   if (getDebugInfo ()).Contains "/pub" then
+//                                   if (getLocals ()).Contains "/pub" then
 //                                       Profiling.addCount
 //                                           $">>> Mmount. setting value. atom={value} d:{syncEngine.GetDebugSummary ()}"
 //
@@ -404,7 +404,7 @@ module SelectAtomSyncKeys =
 //                                       let getter, setter = syncEngine.GetStore ()
 //                                       let value = Atom.value getter atom1
 //
-//                                       if (getDebugInfo ()).Contains "/pub" then
+//                                       if (getLocals ()).Contains "/pub" then
 //                                           Profiling.addCount
 //                                               $"<<< Umount. setting value. atom={value} d:{syncEngine.GetDebugSummary ()}"
 //
@@ -414,7 +414,7 @@ module SelectAtomSyncKeys =
 //
 //            Logger.logTrace
 //                (fun () ->
-//                    $"Store.selectAtomSyncKeys constructor wrapper={wrapper} lastValue={lastValue} lastSubscription={lastSubscription} {getDebugInfo ()}")
+//                    $"Store.selectAtomSyncKeys constructor wrapper={wrapper} lastValue={lastValue} lastSubscription={lastSubscription} {getLocals ()}")
 //
 //            wrapper?init <- [||]
 //

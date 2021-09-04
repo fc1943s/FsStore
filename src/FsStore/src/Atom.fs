@@ -35,7 +35,7 @@ module Atom =
     let rec globalAtomIdMap = Dom.Global.register (nameof globalAtomIdMap) atomIdMap
 
 
-    let inline getDebugInfo () = ""
+    let inline getLocals () = ""
 
     let inline get<'A> (getter: Getter<obj>) (atom: AtomConfig<'A>) : 'A = getter (unbox atom) |> unbox<'A>
     let inline set<'A> (setter: Setter<obj>) (atom: AtomConfig<'A>) (value: 'A) = setter (unbox atom) value
@@ -47,18 +47,18 @@ module Atom =
     let inline addSubscription<'A> (debounce: bool) mount unmount (atom: AtomConfig<'A>) =
         let mutable mounted = false
 
-        let getDebugInfo () =
+        let getLocals () =
             $"debounce={debounce} atom={atom} mounted={mounted}"
 
-        let addTimestamp fn getDebugInfo =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.addSubscription {fn ()} | {getDebugInfo ()}")
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.addSubscription {fn ()} | {getLocals ()}")
 
-        addTimestamp (fun () -> "[ constructor ]") getDebugInfo
+        addTimestamp (fun () -> "[ constructor ]") getLocals
 
         let inline internalMount (setAtom: 'A -> unit) =
             promise {
                 mounted <- true
-                addTimestamp (fun () -> "[ internalMount ] (maybe debounced)") getDebugInfo
+                addTimestamp (fun () -> "[ internalMount ] (maybe debounced)") getLocals
                 do! mount setAtom
             }
 
@@ -70,7 +70,7 @@ module Atom =
 
         let inline internalUnmount () =
             if mounted then
-                addTimestamp (fun () -> "[ internalUnmount ]") getDebugInfo
+                addTimestamp (fun () -> "[ internalUnmount ]") getLocals
                 unmount ()
 
             mounted <- false
@@ -104,13 +104,13 @@ module Atom =
         atomPathMap.[storeAtomPath] <- atom |> unbox<AtomConfig<obj>>
         atomIdMap.[internalKey] <- storeAtomPath
 
-        let getDebugInfo () =
+        let getLocals () =
             $"atom={atom} storeAtomPath={storeAtomPath |> StoreAtomPath.AtomPath} "
 
-        let addTimestamp fn getDebugInfo =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.register {fn ()} | {getDebugInfo ()}")
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.register {fn ()} | {getLocals ()}")
 
-        addTimestamp (fun () -> "[ body ]") getDebugInfo
+        addTimestamp (fun () -> "[ body ]") getLocals
 
         atom
 
@@ -134,17 +134,17 @@ module Atom =
                 | true, atom -> Some (query (AtomReference.Atom (atom |> unbox<AtomConfig<'A>>)))
                 | _ -> None
 
-        let getDebugInfo () =
+        let getLocals () =
             $"atomReference={atomReference} result={result}"
 
-        let addTimestamp fn getDebugInfo =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.query {fn ()} | {getDebugInfo ()}")
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.query {fn ()} | {getLocals ()}")
 
-        addTimestamp (fun () -> "[ body ]") getDebugInfo
+        addTimestamp (fun () -> "[ body ]") getLocals
 
         match result with
         | Some result -> result
-        | None -> failwith $"Atom.query error {getDebugInfo ()} "
+        | None -> failwith $"Atom.query error {getLocals ()} "
 
 
     module Primitives =
@@ -230,29 +230,29 @@ module Atom =
     let empty = Primitives.atom ()
 
     let inline selector storeAtomPath (read: Read<'A>) (write: Write<'A>) =
-        let getDebugInfo () =
-            $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getDebugInfo ()}"
+        let getLocals () =
+            $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.selector {fn ()} | {getDebugInfo ()}")
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.selector {fn ()} | {getLocals ()}")
 
         let wrapper =
             Primitives.selector
                 (fun getter ->
                     let result = read getter
-                    let getDebugInfo () = $"result={result} {getDebugInfo ()}"
-                    addTimestamp (fun () -> "[ read() ]") getDebugInfo
+                    let getLocals () = $"result={result} {getLocals ()}"
+                    addTimestamp (fun () -> "[ read() ]") getLocals
                     result)
                 (fun getter setter newValue ->
-                    let getDebugInfo () =
-                        $"newValue={newValue} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"newValue={newValue} {getLocals ()}"
 
-                    addTimestamp (fun () -> "[ write() ]") getDebugInfo
+                    addTimestamp (fun () -> "[ write() ]") getLocals
                     write getter setter newValue)
 
-        let getDebugInfo () = $"wrapper={wrapper} {getDebugInfo ()}"
+        let getLocals () = $"wrapper={wrapper} {getLocals ()}"
 
-        addTimestamp (fun () -> "[ constructor ]") getDebugInfo
+        addTimestamp (fun () -> "[ constructor ]") getLocals
 
         wrapper |> register storeAtomPath
 
@@ -266,28 +266,28 @@ module Atom =
         selectorFamily storeAtomPathFn read (fun _ _ _ -> failwith "Atom.readSelectorFamily is read only.")
 
     let inline asyncSelector<'A> storeAtomPath (read: AsyncRead<'A>) (write: AsyncWrite<'A>) =
-        let getDebugInfo () =
-            $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getDebugInfo ()}"
+        let getLocals () =
+            $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.asyncSelector {fn ()} | {getDebugInfo ()}")
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.asyncSelector {fn ()} | {getLocals ()}")
 
         Primitives.asyncSelector
             (fun getter ->
                 promise {
                     let! result = read getter
-                    let getDebugInfo () = $"result={result} {getDebugInfo ()}"
-                    addTimestamp (fun () -> "[ read() ]") getDebugInfo
+                    let getLocals () = $"result={result} {getLocals ()}"
+                    addTimestamp (fun () -> "[ read() ]") getLocals
                     return result
                 })
             (fun getter setter newValue ->
                 promise {
                     do! write getter setter newValue
 
-                    let getDebugInfo () =
-                        $"newValue={newValue} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"newValue={newValue} {getLocals ()}"
 
-                    addTimestamp (fun () -> "[ write() ]") getDebugInfo
+                    addTimestamp (fun () -> "[ write() ]") getLocals
                 })
 
     let inline asyncReadSelector<'A> storeAtomPath (read: AsyncRead<'A>) =
@@ -328,17 +328,17 @@ module Atom =
             else
                 None
 
-        let getDebugInfo () =
-            $"atom={atom} atomPath={storeAtomPath |> Option.map StoreAtomPath.AtomPath} {getDebugInfo ()}"
+        let getLocals () =
+            $"atom={atom} atomPath={storeAtomPath |> Option.map StoreAtomPath.AtomPath} {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.wrap {fn ()} | {getDebugInfo ()}")
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.wrap {fn ()} | {getLocals ()}")
 
         let rec wrapper = Primitives.selector read write
 
-        let getDebugInfo () = $"wrapper={wrapper} {getDebugInfo ()}"
+        let getLocals () = $"wrapper={wrapper} {getLocals ()}"
 
-        addTimestamp (fun () -> "[ constructor ]") getDebugInfo
+        addTimestamp (fun () -> "[ constructor ]") getLocals
 
         wrapper?init <- atom.init
 
@@ -370,10 +370,10 @@ module Atom =
 
 
     let inline map<'A, 'B> readFn writeFn atom =
-        let getDebugInfo () = $"atom={atom} {getDebugInfo ()}"
+        let getLocals () = $"atom={atom} {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.map {fn ()} | {getDebugInfo ()}")
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.map {fn ()} | {getLocals ()}")
 
         atom
         |> wrap
@@ -381,10 +381,10 @@ module Atom =
                 let value = get getter atom
                 let newValue: 'B = readFn value
 
-                let getDebugInfo () =
-                    $"value={value} newValue={newValue} {getDebugInfo ()}"
+                let getLocals () =
+                    $"value={value} newValue={newValue} {getLocals ()}"
 
-                addTimestamp (fun () -> "[ read() ]") getDebugInfo
+                addTimestamp (fun () -> "[ read() ]") getLocals
                 newValue)
             (fun _getter setter newValue ->
                 let newValue: 'A = writeFn newValue
@@ -393,10 +393,10 @@ module Atom =
                     setter
                     atom
                     (fun oldValue ->
-                        let getDebugInfo () =
-                            $"oldValue={oldValue} newValue={newValue} {getDebugInfo ()}"
+                        let getLocals () =
+                            $"oldValue={oldValue} newValue={newValue} {getLocals ()}"
 
-                        addTimestamp (fun () -> "[ write() ]") getDebugInfo
+                        addTimestamp (fun () -> "[ write() ]") getLocals
                         newValue))
 
 

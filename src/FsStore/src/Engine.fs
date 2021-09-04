@@ -19,7 +19,7 @@ module Engine =
     type UpdateFn<'State, 'Command, 'Event> =
         Getter<obj> -> Setter<obj> -> 'State -> 'Command -> JS.Promise<'State * Message<'Command, 'Event> list>
 
-    let inline getDebugInfo () = ""
+    let inline getLocals () = ""
 
     let inline consumeCommands (updateFn: UpdateFn<_, _, _>) state getter setter commands =
         promise {
@@ -52,14 +52,14 @@ module Engine =
             let! newState, processedMessages = loop state commands []
 
 
-            let getDebugInfo () =
-                $"commands={commands} newState={newState} processedMessages={processedMessages} {getDebugInfo ()}"
+            let getLocals () =
+                $"commands={commands} newState={newState} processedMessages={processedMessages} {getLocals ()}"
 
-            let addTimestamp fn getDebugInfo =
+            let addTimestamp fn getLocals =
                 Profiling.addTimestamp
-                    (fun () -> $"{nameof FsStore} | Engine.consumeCommands {fn ()} | {getDebugInfo ()}")
+                    (fun () -> $"{nameof FsStore} | Engine.consumeCommands {fn ()} | {getLocals ()}")
 
-            addTimestamp (fun () -> "[ ](_1)") getDebugInfo
+            addTimestamp (fun () -> "[ ](_1)") getLocals
 
             return
                 newState,
@@ -91,14 +91,14 @@ module Engine =
 
         let mutable mounted = false
 
-        let getDebugInfo () =
-            $" | atom={atom} mounted={mounted} lastState.IsSome={lastState.IsSome}  {getDebugInfo ()}"
+        let getLocals () =
+            $" | atom={atom} mounted={mounted} lastState.IsSome={lastState.IsSome}  {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
+        let addTimestamp fn getLocals =
             Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithState {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithState {fn ()} | {getLocals ()}")
 
-        addTimestamp (fun () -> "[ constructor ](g1)") getDebugInfo
+        addTimestamp (fun () -> "[ constructor ](g1)") getLocals
 
         let mutable lastSetAtom = None
 
@@ -121,18 +121,18 @@ module Engine =
             promise {
                 match getState () with
                 | Some (getter, setter, state) ->
-                    addTimestamp (fun () -> "[ newMount ](g2) invoking mount") getDebugInfo
+                    addTimestamp (fun () -> "[ newMount ](g2) invoking mount") getLocals
 
                     mounted <- true
                     do! mount getter setter state lastSetAtom.Value
-                | None -> addTimestamp (fun () -> "[ newMount ](g3) skipping, no state") getDebugInfo
+                | None -> addTimestamp (fun () -> "[ newMount ](g3) skipping, no state") getLocals
             }
 
         let inline newUnmount () =
             if mounted then
                 match getState () with
                 | Some (getter, setter, state) ->
-                    addTimestamp (fun () -> "[ newUnmount ](g4) invoking unmount") getDebugInfo
+                    addTimestamp (fun () -> "[ newUnmount ](g4) invoking unmount") getLocals
 
                     mounted <- false
                     lastState <- None
@@ -140,7 +140,7 @@ module Engine =
                 | None ->
                     addTimestamp
                         (fun () -> "[ newUnmount ](g5) invoking unmount skipping, no state. (should unmount here???)")
-                        getDebugInfo
+                        getLocals
 
         let inline refreshInternalState getter =
             if lastStore.IsNone then lastStore <- Atom.get getter Selectors.store
@@ -149,21 +149,21 @@ module Engine =
 
             let newState = stateFn getter
 
-            let getDebugInfo () =
-                $"newState.IsSome={newState.IsSome} lastSetAtom.IsSome={lastSetAtom.IsSome} {getDebugInfo ()}"
+            let getLocals () =
+                $"newState.IsSome={newState.IsSome} lastSetAtom.IsSome={lastSetAtom.IsSome} {getLocals ()}"
 
             if lastSetAtom.IsNone then
                 addTimestamp
                     (fun () -> "[ refreshInternalState ](g5) skipping mount/unmount. lastSetAtom not found")
-                    getDebugInfo
+                    getLocals
             else
                 match newState with
                 | Some _ ->
-                    addTimestamp (fun () -> "[ refreshInternalState ](g6) invoking newMount") getDebugInfo
+                    addTimestamp (fun () -> "[ refreshInternalState ](g6) invoking newMount") getLocals
                     lastState <- newState
                     newMount () |> Promise.start
                 | None ->
-                    addTimestamp (fun () -> "[ refreshInternalState ](g7) invoking newUnmount") getDebugInfo
+                    addTimestamp (fun () -> "[ refreshInternalState ](g7) invoking newUnmount") getLocals
                     newUnmount ()
 
         atom
@@ -172,27 +172,27 @@ module Engine =
                 refreshInternalState getter
 
                 let result = Atom.get getter atom
-                let getDebugInfo () = $"result={result}  {getDebugInfo ()}"
+                let getLocals () = $"result={result}  {getLocals ()}"
 
-                addTimestamp (fun () -> "[ wrapper.get() ](g8)") getDebugInfo
+                addTimestamp (fun () -> "[ wrapper.get() ](g8)") getLocals
 
                 result)
             (fun _getter setter newValue ->
                 //                    refreshInternalState getter
 
-                let getDebugInfo () =
-                    $"newValue={newValue}  {getDebugInfo ()}"
+                let getLocals () =
+                    $"newValue={newValue}  {getLocals ()}"
 
-                addTimestamp (fun () -> "[ wrapper.set() ](g9)") getDebugInfo
+                addTimestamp (fun () -> "[ wrapper.set() ](g9)") getLocals
                 Atom.set setter atom newValue)
         |> Atom.addSubscription
             false
             (fun setAtom ->
-                addTimestamp (fun () -> "[ addSubscription mount ](g10) invoking newMount") getDebugInfo
+                addTimestamp (fun () -> "[ addSubscription mount ](g10) invoking newMount") getLocals
                 lastSetAtom <- Some setAtom
                 newMount ())
             (fun () ->
-                addTimestamp (fun () -> "[ addSubscription unmount ](g11) invoking newUnmount") getDebugInfo
+                addTimestamp (fun () -> "[ addSubscription unmount ](g11) invoking newUnmount") getLocals
                 newUnmount ())
 
 
@@ -208,12 +208,12 @@ module Engine =
         let mutable intervalHandle = -1
         let mutable lastValue = None
 
-        let getDebugInfo () =
-            $"interval={interval} defaultValue={defaultValue} lastValue={lastValue} timeout={intervalHandle}  {getDebugInfo ()}"
+        let getLocals () =
+            $"interval={interval} defaultValue={defaultValue} lastValue={lastValue} timeout={intervalHandle}  {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
+        let addTimestamp fn getLocals =
             Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithInterval {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithInterval {fn ()} | {getLocals ()}")
 
         let cache = Atom.Primitives.atom defaultValue
 
@@ -222,21 +222,21 @@ module Engine =
             |> wrapAtom
                 (fun getter _ setAtom ->
                     promise {
-                        addTimestamp (fun () -> "[ wrapper.mount() ](h1)") getDebugInfo
+                        addTimestamp (fun () -> "[ wrapper.mount() ](h1)") getLocals
 
                         let inline fn () =
-                            addTimestamp (fun () -> "[ wrapper.mount.fn() ](h2) interval fn") getDebugInfo
+                            addTimestamp (fun () -> "[ wrapper.mount.fn() ](h2) interval fn") getLocals
 
                             if intervalHandle >= 0 then
                                 let atomValue = Atom.get getter atom
 
                                 if Some atomValue |> Object.compare lastValue |> not then
-                                    let getDebugInfo () =
-                                        $"atomValue={atomValue} {getDebugInfo ()}"
+                                    let getLocals () =
+                                        $"atomValue={atomValue} {getLocals ()}"
 
                                     addTimestamp
                                         (fun () -> "[ wrapper.mount.fn() ](h3) interval fn. triggering new value")
-                                        getDebugInfo
+                                        getLocals
 
                                     setAtom atomValue
                                     lastValue <- Some atomValue
@@ -246,7 +246,7 @@ module Engine =
                     })
                 (fun _getter _setter ->
                     //                let logger = Logger.State.lastLogger
-                    addTimestamp (fun () -> "[ wrapper.unmount() ](h4) ") getDebugInfo
+                    addTimestamp (fun () -> "[ wrapper.unmount() ](h4) ") getLocals
 
                     if intervalHandle >= 0 then JS.clearTimeout intervalHandle
                     intervalHandle <- -1)
@@ -280,13 +280,13 @@ module Engine =
 
 
     let inline batchPutFromUi atomType (gunAtomNode, privateKeys, ticks, newValue: AtomValueRef, onPut) =
-        let getDebugInfo () =
-            $"atomType={atomType} ticks={ticks} newValue={newValue} {getDebugInfo ()}"
+        let getLocals () =
+            $"atomType={atomType} ticks={ticks} newValue={newValue} {getLocals ()}"
 
         let typeMetadata = typeMetadataMap.[atomType]
 
-        let addTimestamp fn getDebugInfo =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchPutFromUi {fn ()} | {getDebugInfo ()}")
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchPutFromUi {fn ()} | {getLocals ()}")
 
         batch (
             BatchType.Set (
@@ -309,10 +309,10 @@ module Engine =
                                 gunAtomNode
                                 (Gun.GunValue.EncryptedSignedValue (Gun.EncryptedSignedValue newValueJson))
 
-                        let getDebugInfo () =
-                            $"putResult={putResult} {getDebugInfo ()}"
+                        let getLocals () =
+                            $"putResult={putResult} {getLocals ()}"
 
-                        addTimestamp (fun () -> "[ batchSetFn ](i1)") getDebugInfo
+                        addTimestamp (fun () -> "[ batchSetFn ](i1)") getLocals
                         if putResult then onPut ()
                     })
             )
@@ -356,12 +356,12 @@ module Engine =
 
         let debouncedBatchPutFromUi = Js.debounce (batchPutFromUi atomType) 0
 
-        let getDebugInfo () =
-            $"atomType={atomType} adapterType={adapterType} {getDebugInfo ()}"
+        let getLocals () =
+            $"atomType={atomType} adapterType={adapterType} {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
+        let addTimestamp fn getLocals =
             Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.getAdapterSubscription {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.getAdapterSubscription {fn ()} | {getLocals ()}")
 
         let mount, unmount =
             match adapterType with
@@ -369,18 +369,18 @@ module Engine =
                 (fun storeAtomPath getter setter adapterOptions (adapterSetAtom: Transaction -> unit) ->
                     let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
 
-                    let getDebugInfo () =
-                        $"atomPath={atomPath}  {getDebugInfo ()}"
+                    let getLocals () =
+                        $"atomPath={atomPath}  {getLocals ()}"
 
                     match adapterOptions with
                     | Atom.AdapterOptions.Gun (_peers, alias) ->
                         let privateKeys = Atom.get getter Selectors.Gun.privateKeys
                         let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (Some alias, atomPath))
 
-                        let getDebugInfo () =
-                            $" adapterOptions={adapterOptions} {getDebugInfo ()}"
+                        let getLocals () =
+                            $" adapterOptions={adapterOptions} {getLocals ()}"
 
-                        addTimestamp (fun () -> "[ ====> mountFn ](j1) gun") getDebugInfo
+                        addTimestamp (fun () -> "[ ====> mountFn ](j1) gun") getLocals
 
                         match gunAtomNode, privateKeys with
                         | Some gunAtomNode, Some privateKeys ->
@@ -392,17 +392,17 @@ module Engine =
                                 | RootAtomPath (_, name) ->
                                     addTimestamp
                                         (fun () -> $"[ |--| mount ] invoking indexed subscribe. name={name} ")
-                                        getDebugInfo
+                                        getLocals
 
                                     let debouncedAdapterSetAtom =
                                         Js.debounce
                                             (fun value ->
-                                                let getDebugInfo () = $"value={value} {getDebugInfo ()}"
+                                                let getLocals () = $"value={value} {getLocals ()}"
 
                                                 addTimestamp
                                                     (fun () ->
                                                         "[ ********> mountFn / debouncedAdapterSetAtom ](j3) gun. debounced on subscribe data")
-                                                    getDebugInfo
+                                                    getLocals
 
                                                 adapterSetAtom value)
                                             0
@@ -413,50 +413,50 @@ module Engine =
                                         subscriptionTicks
                                         (fun (subscriptionTicks, gunValue, key) ->
                                             promise {
-                                                let getDebugInfo () =
-                                                    $"gunValue={gunValue} key={key} {getDebugInfo ()}"
+                                                let getLocals () =
+                                                    $"gunValue={gunValue} key={key} {getLocals ()}"
 
                                                 try
                                                     addTimestamp
                                                         (fun () ->
                                                             "[ ||==> Gun.batchSubscribe.on() ](j4-1(1)) will decode. inside gun.on() ")
-                                                        getDebugInfo
+                                                        getLocals
 
                                                     let! newValue = typeMetadata.Decode privateKeys gunValue
 
-                                                    let getDebugInfo () =
-                                                        $"newValue={newValue} {getDebugInfo ()}"
+                                                    let getLocals () =
+                                                        $"newValue={newValue} {getLocals ()}"
 
                                                     match newValue with
                                                     | Some (ticks, value) ->
                                                         addTimestamp
                                                             (fun () ->
                                                                 "[ ||==> Gun.batchSubscribe.on() ](j4-1(2)) invoking debouncedSetAtom. inside gun.on() ")
-                                                            getDebugInfo
+                                                            getLocals
 
                                                         debouncedAdapterSetAtom (Transaction (NotFromUi, ticks, value))
                                                     | None ->
                                                         addTimestamp
                                                             (fun () ->
                                                                 "[ ||==> Gun.batchSubscribe.on() ](j4-1(3)) skipped set from gun ")
-                                                            getDebugInfo
+                                                            getLocals
                                                 with
                                                 | ex ->
                                                     Logger.logError
                                                         (fun () ->
-                                                            $"Engine.getAtomAdapter. gun subscribe data error. ex={ex.Message} subscriptionTicks={subscriptionTicks} {getDebugInfo ()}")
+                                                            $"Engine.getAtomAdapter. gun subscribe data error. ex={ex.Message} subscriptionTicks={subscriptionTicks} {getLocals ()}")
 
                                                     Logger.consoleError [| ex |]
                                             })
 
                                     let inline setAdapterValue (Transaction (fromUi, lastTicks, lastValue)) =
-                                        let getDebugInfo () =
-                                            $"fromUi={fromUi} lastTicks={lastTicks} lastValue={lastValue} {getDebugInfo ()}"
+                                        let getLocals () =
+                                            $"fromUi={fromUi} lastTicks={lastTicks} lastValue={lastValue} {getLocals ()}"
 
                                         addTimestamp
                                             (fun () ->
                                                 "[ ||==> setAdapterValue ](j4-2) invoking debouncedBatchPutFromUi  ")
-                                            getDebugInfo
+                                            getLocals
 
                                         if fromUi = FromUi then
                                             debouncedBatchPutFromUi (
@@ -468,7 +468,7 @@ module Engine =
                                                     addTimestamp
                                                         (fun () ->
                                                             "[ ||==> setAdapterValue ](j4) invoking debouncedSetAtom. gun inside setAtom passed to debouncedBatchPutFromUi  ")
-                                                        getDebugInfo
+                                                        getLocals
 
                                                     debouncedAdapterSetAtom (
                                                         Transaction (NotFromUi, lastTicks, lastValue)
@@ -479,7 +479,7 @@ module Engine =
                                 | CollectionAtomPath (storeRoot, collection) ->
                                     addTimestamp
                                         (fun () -> "[ |--| mount ] invoking collection subscribe  ")
-                                        getDebugInfo
+                                        getLocals
 
                                     let mutable lastValue: Set<Gun.AtomKeyFragment> option = None
 
@@ -523,10 +523,10 @@ module Engine =
                                                 //                        |> Array.distinct
                                                 //
                                                 //                    lastValue <- Some (newItems |> Set.ofArray |> Set.union lastSet)
-                                                let getDebugInfo () =
-                                                    $"lastValue={lastValue} itemsArray={itemsArray} items={items} {getDebugInfo ()}"
+                                                let getLocals () =
+                                                    $"lastValue={lastValue} items={items} itemsArray={itemsArray} {getLocals ()}"
 
-                                                addTimestamp (fun () -> "[ batchKeys ](y2) ") getDebugInfo
+                                                addTimestamp (fun () -> "[ batchKeys ](y2) ") getLocals
 
                                                 items)
 
@@ -542,15 +542,15 @@ module Engine =
                                                     |> Array.map typeMetadata.OnFormat
                                                     |> Array.iteri
                                                         (fun i formattedKey ->
-                                                            let getDebugInfo () =
-                                                                $"fromUi={fromUi} ticks={ticks} subscriptionTicks={subscriptionTicks} i={i} keys={keys} formattedKey={formattedKey} value={value} {getDebugInfo ()}"
+                                                            let getLocals () =
+                                                                $"fromUi={fromUi} ticks={ticks} subscriptionTicks={subscriptionTicks} i={i} keys={keys} formattedKey={formattedKey} value={value} {getLocals ()}"
 
                                                             match formattedKey with
                                                             | Some formattedKey ->
                                                                 addTimestamp
                                                                     (fun () ->
                                                                         "[ batchKeysAtom ](y2) invoking keys adapterSetAtom (skipping 'adapterSetAtom (Transaction (fromUi, ticks, atomValueRef))' call) ")
-                                                                    getDebugInfo
+                                                                    getLocals
 
                                                                 Atom.change
                                                                     setter
@@ -568,7 +568,7 @@ module Engine =
                                                                 addTimestamp
                                                                     (fun () ->
                                                                         "[ batchKeysAtom ](y2) batchKeysAtom skipped. invalid onformat ")
-                                                                    getDebugInfo)
+                                                                    getLocals)
                                                 })
                                             (ticks, value |> Array.singleton)
                                             kind
@@ -579,13 +579,13 @@ module Engine =
                                         subscriptionTicks
                                         (fun (subscriptionTicks, gunValue, rawKey) ->
                                             promise {
-                                                let getDebugInfo () =
-                                                    $"rawKey={rawKey} gunValue={gunValue} subscriptionTicks={subscriptionTicks} {getDebugInfo ()}"
+                                                let getLocals () =
+                                                    $"rawKey={rawKey} gunValue={gunValue} subscriptionTicks={subscriptionTicks} {getLocals ()}"
 
                                                 addTimestamp
                                                     (fun () ->
                                                         "[ ||==>X Gun.batchSubscribe.on() ](j4-1) inside gun.map().on() ")
-                                                    getDebugInfo
+                                                    getLocals
 
                                                 batchKeysAtom
                                                     (NotFromUi, Guid.newTicksGuid (), rawKey)
@@ -597,8 +597,8 @@ module Engine =
                                     let inline setAdapterValue
                                         (Transaction (fromUi, lastTicks, AtomValueRef lastValue))
                                         =
-                                        let getDebugInfo () =
-                                            $"fromUi={fromUi} lastTicks={lastTicks} lastValue={lastValue} {getDebugInfo ()}"
+                                        let getLocals () =
+                                            $"fromUi={fromUi} lastTicks={lastTicks} lastValue={lastValue} {getLocals ()}"
 
                                         batchKeysAtom
                                             (NotFromUi, Guid.newTicksGuid (), Gun.AtomKeyFragment (string lastValue))
@@ -607,15 +607,15 @@ module Engine =
                                         addTimestamp
                                             (fun () ->
                                                 "[ ||==> collection setAdapterValue ](j4-2) calling batchKeysAtom  ")
-                                            getDebugInfo
+                                            getLocals
 
                                     Some setAdapterValue
                                 | _ ->
-                                    addTimestamp (fun () -> "[ mountFn ](j2-2) invalid atom path ") getDebugInfo
+                                    addTimestamp (fun () -> "[ mountFn ](j2-2) invalid atom path ") getLocals
                                     None
 
 
-                            addTimestamp (fun () -> "[ ||||||||| mountFn ](j2) gun. will batch subscribe") getDebugInfo
+                            addTimestamp (fun () -> "[ ||||||||| mountFn ](j2) gun. will batch subscribe") getLocals
 
                             match setAdapterValues with
                             | Some setAdapterValues ->
@@ -623,13 +623,13 @@ module Engine =
                                 Some (subscriptionId, setAdapterValues)
                             | None -> None
 
-                        | _ -> failwith $"invalid gun atom node {getDebugInfo ()}"
+                        | _ -> failwith $"invalid gun atom node {getLocals ()}"
                     | _ -> None),
                 (fun storeAtomPath getter (_setter: Setter<obj>) adapterOptions ->
                     let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
 
-                    let getDebugInfo () =
-                        $"atomPath={atomPath} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"atomPath={atomPath} {getLocals ()}"
 
                     match adapterOptions with
                     | Atom.AdapterOptions.Gun (_peers, alias) ->
@@ -645,12 +645,12 @@ module Engine =
                             ()
                         | _ -> ()
 
-                        let getDebugInfo () =
-                            $"adapterOptions={adapterOptions} {getDebugInfo ()}"
+                        let getLocals () =
+                            $"adapterOptions={adapterOptions} {getLocals ()}"
 
                         addTimestamp
                             (fun () -> "[ <==== unmountFn ](j5) gun unmount (# skipped, gun bug? ) ")
-                            getDebugInfo
+                            getLocals
 
                     | _ -> ())
             | Atom.AdapterType.Hub ->
@@ -658,7 +658,7 @@ module Engine =
                     match adapterOptions with
                     | Atom.AdapterOptions.Hub (_alias, _hubUrl) ->
                         //                let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
-                        Profiling.addTimestamp (fun () -> $"+09B ====> getAtomAdapter hub mount  {getDebugInfo ()}  ")
+                        Profiling.addTimestamp (fun () -> $"+09B ====> getAtomAdapter hub mount  {getLocals ()}  ")
 
                         let subscriptionTicks = Guid.newTicksGuid ()
                         let subscriptionId = SubscriptionId subscriptionTicks
@@ -667,14 +667,14 @@ module Engine =
                             subscriptionId,
                             (fun (Transaction (_fromUi, _lastTicks, _lastValue)) ->
                                 Profiling.addTimestamp
-                                    (fun () -> $"+09-1B ====> getAtomAdapter hub setAdapterValue  {getDebugInfo ()}  "))
+                                    (fun () -> $"+09-1B ====> getAtomAdapter hub setAdapterValue  {getLocals ()}  "))
                         )
                     | _ -> None),
                 (fun _storeAtomPath _getter _setter adapterOptions ->
                     match adapterOptions with
                     | Atom.AdapterOptions.Hub (_alias, _hubUrl) ->
                         //                let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
-                        Profiling.addTimestamp (fun () -> $"+08B <==== getAtomAdapter hub unmount  {getDebugInfo ()}  ")
+                        Profiling.addTimestamp (fun () -> $"+08B <==== getAtomAdapter hub unmount  {getLocals ()}  ")
                     | _ -> ()
 
                     )
@@ -684,10 +684,10 @@ module Engine =
                     | Atom.AdapterOptions.Memory ->
                         //                let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
 
-                        let getDebugInfo () =
-                            $"adapterOptions={adapterOptions} {getDebugInfo ()}"
+                        let getLocals () =
+                            $"adapterOptions={adapterOptions} {getLocals ()}"
 
-                        addTimestamp (fun () -> "[ ====> mountFn ](j6) memory mount ") getDebugInfo
+                        addTimestamp (fun () -> "[ ====> mountFn ](j6) memory mount ") getLocals
 
                         let subscriptionTicks = Guid.newTicksGuid ()
                         let subscriptionId = SubscriptionId subscriptionTicks
@@ -695,12 +695,12 @@ module Engine =
                         Some (
                             subscriptionId,
                             (fun (Transaction (_fromUi, _lastTicks, _lastValue)) ->
-                                let getDebugInfo () =
-                                    $"_lastTicks={_lastTicks} _lastValue={_lastValue} {getDebugInfo ()}"
+                                let getLocals () =
+                                    $"_lastTicks={_lastTicks} _lastValue={_lastValue} {getLocals ()}"
 
                                 addTimestamp
                                     (fun () -> "[ ¨¨ setAdapterValue ](j8) memory inside debouncedPutFromUi setAtom ")
-                                    getDebugInfo)
+                                    getLocals)
                         )
                     | _ -> None),
                 (fun _storeAtomPath _getter _setter adapterOptions ->
@@ -708,10 +708,10 @@ module Engine =
                     | Atom.AdapterOptions.Memory ->
                         //                let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
 
-                        let getDebugInfo () =
-                            $"adapterOptions={adapterOptions} {getDebugInfo ()}"
+                        let getLocals () =
+                            $"adapterOptions={adapterOptions} {getLocals ()}"
 
-                        addTimestamp (fun () -> "[ <==== unmountFn ](j7) memory unmount ") getDebugInfo
+                        addTimestamp (fun () -> "[ <==== unmountFn ](j7) memory unmount ") getLocals
                     | _ -> ())
 
         mount, unmount
@@ -737,20 +737,20 @@ module Engine =
 
         let mutable setAdapterValue: (Transaction -> unit) option = None
 
-        let getDebugInfo () =
-            $"storeAtomPath={storeAtomPath} alias={alias} adapterType={adapterType} atom={atom} setAdapterValue.IsSome={setAdapterValue.IsSome}  {getDebugInfo ()}"
+        let getLocals () =
+            $"storeAtomPath={storeAtomPath} alias={alias} adapterType={adapterType} atom={atom} setAdapterValue.IsSome={setAdapterValue.IsSome}  {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
+        let addTimestamp fn getLocals =
             Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.createAtomWithAdapter {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.createAtomWithAdapter {fn ()} | {getLocals ()}")
 
-        addTimestamp (fun () -> "[ constructor ](f1)") getDebugInfo
+        addTimestamp (fun () -> "[ constructor ](f1)") getLocals
 
         Atom.Primitives.selector
             (fun getter ->
                 let result = Atom.get getter atom
-                let getDebugInfo () = $"result={result} {getDebugInfo ()}"
-                addTimestamp (fun () -> "[ wrapper.get() ](f2)") getDebugInfo
+                let getLocals () = $"result={result} {getLocals ()}"
+                addTimestamp (fun () -> "[ wrapper.get() ](f2)") getLocals
                 result)
             (fun _ setter newValue ->
                 match newValue with
@@ -759,8 +759,8 @@ module Engine =
                         setter
                         atom
                         (fun oldValue ->
-                            let getDebugInfo () =
-                                $"oldValue={oldValue} newTicks={newTicks} newValue={newValue} newFromUi={newFromUi} {getDebugInfo ()}"
+                            let getLocals () =
+                                $"oldValue={oldValue} newTicks={newTicks} newValue={newValue} newFromUi={newFromUi} {getLocals ()}"
 
                             match setAdapterValue with
                             | Some setAdapterValue when
@@ -773,25 +773,25 @@ module Engine =
                                 ->
                                 addTimestamp
                                     (fun () -> "[ (^^^^2) wrapper.set() ](f3) triggering new adapter value")
-                                    getDebugInfo
+                                    getLocals
 
                                 // gunPut
                                 setAdapterValue (Transaction (newFromUi, newTicks, newValue))
                             | _ ->
                                 addTimestamp
                                     (fun () -> "[ wrapper.set() ](f3-1) skipping new adapter assign")
-                                    getDebugInfo
+                                    getLocals
 
                             Some (Transaction (newFromUi, newTicks, newValue)))
-                | None -> failwith $"invalid newValue {getDebugInfo ()}")
+                | None -> failwith $"invalid newValue {getLocals ()}")
         |> wrapAtomWithState
             (fun getter ->
                 let adapterOptions = getAdapterOptions getter adapterType
 
-                let getDebugInfo () =
-                    $"adapterOptions={Json.encodeWithNull adapterOptions} {getDebugInfo ()}"
+                let getLocals () =
+                    $"adapterOptions={Json.encodeWithNull adapterOptions} {getLocals ()}"
 
-                addTimestamp (fun () -> "[ state.read() ](f5)") getDebugInfo
+                addTimestamp (fun () -> "[ state.read() ](f5)") getLocals
 
                 match adapterOptions with
                 | Some adapterOptions -> Some adapterOptions
@@ -800,10 +800,10 @@ module Engine =
                 promise {
                     //                let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
 
-                    let getDebugInfo () =
-                        $"adapterOptions={Json.encodeWithNull adapterOptions} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"adapterOptions={Json.encodeWithNull adapterOptions} {getLocals ()}"
 
-                    addTimestamp (fun () -> "[ @@> mount ](f6)") getDebugInfo
+                    addTimestamp (fun () -> "[ @@> mount ](f6)") getLocals
 
                     if setAdapterValue.IsNone then
                         let mountResult =
@@ -813,18 +813,18 @@ module Engine =
                                 adapterOptions
                                 (fun (Transaction (fromUi, ticksGuid, value)) ->
 
-                                    let getDebugInfo () =
-                                        $"fromUi={fromUi} ticksGuid={ticksGuid} value={value} {getDebugInfo ()}"
+                                    let getLocals () =
+                                        $"fromUi={fromUi} ticksGuid={ticksGuid} value={value} {getLocals ()}"
 
                                     addTimestamp
                                         (fun () -> "[ setAdapterValue / setAtom ](f6+1) after debounced put?")
-                                        getDebugInfo
+                                        getLocals
 
                                     if setAdapterValue.IsNone then
                                         addTimestamp
                                             (fun () ->
                                                 "[ setAdapterValue / setAtom ](f6+2) skipping assign from adapter. unmounted ")
-                                            getDebugInfo
+                                            getLocals
                                     else
                                         setAtom (Some (Transaction (fromUi, ticksGuid, value))))
 
@@ -836,23 +836,23 @@ module Engine =
                             gunSubscriptionMap.Remove atomId |> ignore
                             setAdapterValue <- None
 
-                    addTimestamp (fun () -> "[ after mount ](f6)") getDebugInfo
+                    addTimestamp (fun () -> "[ after mount ](f6)") getLocals
 
                 })
             (fun getter setter adapterOptions ->
-                let getDebugInfo () =
-                    $"adapterOptions={Json.encodeWithNull adapterOptions} {getDebugInfo ()}"
+                let getLocals () =
+                    $"adapterOptions={Json.encodeWithNull adapterOptions} {getLocals ()}"
 
-                addTimestamp (fun () -> "[ <@@ unmount ](f7)") getDebugInfo
+                addTimestamp (fun () -> "[ <@@ unmount ](f7)") getLocals
 
                 if setAdapterValue.IsSome then
                     unmount getter setter adapterOptions
                     gunSubscriptionMap.Remove atomId |> ignore
                     setAdapterValue <- None
 
-                let getDebugInfo () = $" {getDebugInfo ()}"
+                let getLocals () = $" {getLocals ()}"
 
-                addTimestamp (fun () -> "[ after unmount ](f7)") getDebugInfo)
+                addTimestamp (fun () -> "[ after unmount ](f7)") getLocals)
 
     let adapterAtomMap = Dictionary<AtomId, AtomConfig<Transaction option>> ()
 
@@ -861,19 +861,19 @@ module Engine =
 
         let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
 
-        let getDebugInfo () =
-            $"atomType={atomType} alias={alias} atomPath={atomPath} {getDebugInfo ()}"
+        let getLocals () =
+            $"atomType={atomType} alias={alias} atomPath={atomPath} {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.getAdapterValues {fn ()} | {getDebugInfo ()}")
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.getAdapterValues {fn ()} | {getLocals ()}")
 
         Reflection.unionCases<Atom.AdapterType>
         |> List.choose
             (fun adapterType ->
                 match alias, getAdapterOptions getter adapterType with
                 | Some alias, Some adapterOptions ->
-                    let getDebugInfo () =
-                        $"adapterType={adapterType} adapterOptions={adapterOptions}  {getDebugInfo ()}"
+                    let getLocals () =
+                        $"adapterType={adapterType} adapterOptions={adapterOptions}  {getLocals ()}"
 
                     let atomId = AtomId (adapterType, alias, storeAtomPath)
 
@@ -882,7 +882,7 @@ module Engine =
                     let adapterAtom =
                         match adapterAtomMap.TryGetValue atomId with
                         | true, value ->
-                            addTimestamp (fun () -> "[ getAdapterValues ](a4) returning cached adapter") getDebugInfo
+                            addTimestamp (fun () -> "[ getAdapterValues ](a4) returning cached adapter") getLocals
 
                             value
                         | _ ->
@@ -891,7 +891,7 @@ module Engine =
 
                             addTimestamp
                                 (fun () -> "[ getAdapterValues ](a4) returning newly created adapter")
-                                getDebugInfo
+                                getLocals
 
                             adapterAtomMap.Add (atomId, newAtom)
 
@@ -899,10 +899,10 @@ module Engine =
 
                     let adapterValue = Atom.get getter adapterAtom
 
-                    let getDebugInfo () =
-                        $"adapterType={adapterType} adapterAtom={adapterAtom} adapterOptions={adapterOptions} adapterValue={adapterValue} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"adapterType={adapterType} adapterAtom={adapterAtom} adapterOptions={adapterOptions} adapterValue={adapterValue} {getLocals ()}"
 
-                    addTimestamp (fun () -> "[ getAdapterValues ](a4) returning valid adapter") getDebugInfo
+                    addTimestamp (fun () -> "[ getAdapterValues ](a4) returning valid adapter") getLocals
                     Some (adapterType, adapterOptions, adapterAtom, adapterValue)
                 | _ -> None)
 
@@ -918,12 +918,12 @@ module Engine =
 
         let storeAtomPath = CollectionAtomPath (storeRoot, collection)
 
-        let getDebugInfo () =
-            $"atomType={atomType} atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getDebugInfo ()}"
+        let getLocals () =
+            $"atomType={atomType} atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
+        let addTimestamp fn getLocals =
             Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.subscribeCollection {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.subscribeCollection {fn ()} | {getLocals ()}")
 
         if typeMetadataMap.ContainsKey atomType |> not then
             collectionTypeMap.[(storeRoot, collection)] <- collectionAtomType
@@ -941,42 +941,42 @@ module Engine =
                                     | [| key |] -> Some (KeyRef key)
                                     | _ -> None
 
-                            let getDebugInfo () =
-                                $"keys={keys} result={result} {getDebugInfo ()}"
+                            let getLocals () =
+                                $"keys={keys} result={result} {getLocals ()}"
 
-                            addTimestamp (fun () -> "[ OnFormat ]") getDebugInfo
+                            addTimestamp (fun () -> "[ OnFormat ]") getLocals
                             result)
                     Decode = unbox null
                     Encode = unbox null
                 |}
 
-        addTimestamp (fun () -> "[ constructor ](z1)") getDebugInfo
+        addTimestamp (fun () -> "[ constructor ](z1)") getLocals
 
         let inline sync _adapterValues =
             match lastStore with
             | Some (getter, _setter) ->
                 let adapterValues = getAdapterValues atomType getter storeAtomPath
 
-                let getDebugInfo () =
-                    $"adapterValues={adapterValues} {getDebugInfo ()}"
+                let getLocals () =
+                    $"adapterValues={adapterValues} {getLocals ()}"
 
-                addTimestamp (fun () -> "[ sync ](z4)") getDebugInfo
+                addTimestamp (fun () -> "[ sync ](z4)") getLocals
             | _ -> ()
 
         let debouncedSync =
             Js.debounce
                 (fun adapterValues ->
-                    addTimestamp (fun () -> "[ debouncedSync ](z2)") getDebugInfo
+                    addTimestamp (fun () -> "[ debouncedSync ](z2)") getLocals
                     sync adapterValues)
                 0
 
         let inline refreshAdapterValues getter =
             let adapterValues = getAdapterValues atomType getter storeAtomPath
 
-            let getDebugInfo () =
-                $"adapterValues={adapterValues} {getDebugInfo ()}"
+            let getLocals () =
+                $"adapterValues={adapterValues} {getLocals ()}"
 
-            addTimestamp (fun () -> "[ refreshAdapterValues ](z3)") getDebugInfo
+            addTimestamp (fun () -> "[ refreshAdapterValues ](z3)") getLocals
 
             debouncedSync adapterValues
 
@@ -987,7 +987,7 @@ module Engine =
 
                 let alias = Atom.get getter Selectors.Gun.alias
 
-                let getDebugInfo () = $"alias={alias} {getDebugInfo ()}"
+                let getLocals () = $"alias={alias} {getLocals ()}"
 
                 let collectionKeys = Atom.get getter (collectionKeysFamily (alias, storeRoot, collection))
 
@@ -1001,10 +1001,10 @@ module Engine =
                     |> Map.keys
                     |> Seq.toArray
 
-                let getDebugInfo () =
-                    $"collectionKeys={collectionKeys} result={Json.encodeWithNull result} {getDebugInfo ()}"
+                let getLocals () =
+                    $"collectionKeys={collectionKeys} result={Json.encodeWithNull result} {getLocals ()}"
 
-                addTimestamp (fun () -> "[ wrapper.get() ](z3) ") getDebugInfo
+                addTimestamp (fun () -> "[ wrapper.get() ](z3) ") getLocals
 
                 result
                 |> Array.map (fun (KeyRef key) -> key |> unbox<'TKey>))
@@ -1029,14 +1029,14 @@ module Engine =
     let groupMapFamily: (GroupRef * Gun.Alias option * StoreAtomPath -> AtomConfig<(GroupRef * (TicksGuid * AtomValueRef)) list>) =
         Atom.atomFamilyAtom
             (fun (groupRef: GroupRef, alias: Gun.Alias option, storeAtomPath: StoreAtomPath) ->
-                let getDebugInfo () =
-                    $"groupRef={groupRef} alias={alias} storeAtomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getDebugInfo ()}"
+                let getLocals () =
+                    $"groupRef={groupRef} alias={alias} storeAtomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
-                let addTimestamp fn getDebugInfo =
+                let addTimestamp fn getLocals =
                     Profiling.addTimestamp
-                        (fun () -> $"{nameof FsStore} | Engine.groupMapFamily {fn ()} | {getDebugInfo ()}")
+                        (fun () -> $"{nameof FsStore} | Engine.groupMapFamily {fn ()} | {getLocals ()}")
 
-                addTimestamp (fun () -> "[ constructor ](e3)") getDebugInfo
+                addTimestamp (fun () -> "[ constructor ](e3)") getLocals
                 [])
 
 
@@ -1045,14 +1045,14 @@ module Engine =
             (fun (groupRef: GroupRef, alias: Gun.Alias option, storeAtomPath: StoreAtomPath) getter ->
                 let groupMap = Atom.get getter (groupMapFamily (groupRef, alias, storeAtomPath))
 
-                let getDebugInfo () =
-                    $"groupRef={groupRef} alias={alias} storeAtomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getDebugInfo ()}"
+                let getLocals () =
+                    $"groupRef={groupRef} alias={alias} storeAtomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
-                let addTimestamp fn getDebugInfo =
+                let addTimestamp fn getLocals =
                     Profiling.addTimestamp
-                        (fun () -> $"{nameof FsStore} | Engine.userAtomFamily {fn ()} | {getDebugInfo ()}")
+                        (fun () -> $"{nameof FsStore} | Engine.userAtomFamily {fn ()} | {getLocals ()}")
 
-                addTimestamp (fun () -> "[ readSelectorFamily.read() ](e2)") getDebugInfo
+                addTimestamp (fun () -> "[ readSelectorFamily.read() ](e2)") getLocals
 
                 match groupMap with
                 | [] -> []
@@ -1063,14 +1063,14 @@ module Engine =
         (defaultGroup: 'TGroup, defaultValue: 'A6)
         : AtomConfig<('TGroup * (TicksGuid * 'A6)) list> =
 
-        let getDebugInfo () =
-            $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} defaultGroup={defaultGroup} defaultValue={defaultValue} {getDebugInfo ()}"
+        let getLocals () =
+            $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} defaultGroup={defaultGroup} defaultValue={defaultValue} {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
+        let addTimestamp fn getLocals =
             Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.createAtomWithGroup {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.createAtomWithGroup {fn ()} | {getLocals ()}")
 
-        addTimestamp (fun () -> "[ constructor ](d1)") getDebugInfo
+        addTimestamp (fun () -> "[ constructor ](d1)") getLocals
 
         let wrapper =
             Atom.Primitives.selector
@@ -1105,10 +1105,10 @@ module Engine =
                                 ]
                             | result -> result
 
-                    let getDebugInfo () =
-                        $"alias={alias} userAtom={userAtom} result={result} filteredResult={Json.encodeWithNull filteredResult} finalResult={finalResult} {getDebugInfo ()} "
+                    let getLocals () =
+                        $"alias={alias} userAtom={userAtom} result={result} filteredResult={Json.encodeWithNull filteredResult} finalResult={finalResult} {getLocals ()} "
 
-                    addTimestamp (fun () -> "[ wrapper.get() ](d2)") getDebugInfo
+                    addTimestamp (fun () -> "[ wrapper.get() ](d2)") getLocals
 
                     finalResult)
                 (fun getter setter (newValue: ('TGroup * (TicksGuid * 'A6)) list) ->
@@ -1119,10 +1119,10 @@ module Engine =
                         newValue
                         |> List.map (fun (group, (ticks, value: 'A6)) -> GroupRef group, (ticks, AtomValueRef value))
 
-                    let getDebugInfo () =
-                        $"newValue={newValue} alias={alias} userAtom={userAtom} {getDebugInfo ()} "
+                    let getLocals () =
+                        $"newValue={newValue} alias={alias} userAtom={userAtom} {getLocals ()} "
 
-                    addTimestamp (fun () -> "[ wrapper.set() ](d3)") getDebugInfo
+                    addTimestamp (fun () -> "[ wrapper.set() ](d3)") getLocals
 
                     Atom.set setter userAtom newValue)
             |> Atom.register storeAtomPath
@@ -1137,10 +1137,10 @@ module Engine =
         : unit =
         match lastStore with
         | Some (getter, setter) ->
-            let getDebugInfo () = $"atom={atom} {getDebugInfo ()}"
+            let getLocals () = $"atom={atom} {getLocals ()}"
 
-            let addTimestamp fn getDebugInfo =
-                Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.sync {fn ()} | {getDebugInfo ()}")
+            let addTimestamp fn getLocals =
+                Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.sync {fn ()} | {getLocals ()}")
 
             let localAdapters = Atom.get getter atom
 
@@ -1148,10 +1148,10 @@ module Engine =
 
             let inline setAdapterAtom adapterAtom =
                 fun (Transaction (fromUi, ticks, newValue)) ->
-                    let getDebugInfo () =
-                        $"adapterAtom={adapterAtom} fromUi={fromUi} ticks={ticks} newValue={newValue} {getDebugInfo ()} "
+                    let getLocals () =
+                        $"adapterAtom={adapterAtom} fromUi={fromUi} ticks={ticks} newValue={newValue} {getLocals ()} "
 
-                    addTimestamp (fun () -> "[ (:::::) setAdapterAtom ](c1) ") getDebugInfo
+                    addTimestamp (fun () -> "[ (:::::) setAdapterAtom ](c1) ") getLocals
 
                     Atom.set setter adapterAtom (Some (Transaction (fromUi, ticks, newValue)))
 
@@ -1164,21 +1164,21 @@ module Engine =
                     | adapterType, _adapterOptions, adapterAtom, None ->
                         setAdapterAtom adapterAtom, adapterType, None, None, None)
 
-            let getDebugInfo () =
-                $" lastAdapterType={lastAdapterType} lastFromUi={lastFromUi} lastTicks={lastTicks} lastValue={lastValue} == [ localAdapters={Json.encodeWithNull localAdapters} ] {getDebugInfo ()} "
+            let getLocals () =
+                $" lastAdapterType={lastAdapterType} lastFromUi={lastFromUi} lastTicks={lastTicks} lastValue={lastValue} == [ localAdapters={Json.encodeWithNull localAdapters} ] {getLocals ()} "
 
 
             let inline setUiAtom (Transaction (fromUi, ticks, newValue)) =
-                addTimestamp (fun () -> "[ (:::::) lastAdapter.write() ](c2) invoking Atom.change ") getDebugInfo
+                addTimestamp (fun () -> "[ (:::::) lastAdapter.write() ](c2) invoking Atom.change ") getLocals
 
                 Atom.change
                     setter
                     atom
                     (fun oldValue ->
-                        let getDebugInfo () =
-                            $"lastAdapterType={lastAdapterType} oldValue={oldValue} ticks={ticks} newValue={newValue} {getDebugInfo ()} "
+                        let getLocals () =
+                            $"lastAdapterType={lastAdapterType} oldValue={oldValue} ticks={ticks} newValue={newValue} {getLocals ()} "
 
-                        addTimestamp (fun () -> "[ (:::::) lastAdapter.write() ](c2) inside Atom.change ") getDebugInfo
+                        addTimestamp (fun () -> "[ (:::::) lastAdapter.write() ](c2) inside Atom.change ") getLocals
 
                         (lastAdapterType, (Transaction (fromUi, ticks, newValue)))
                         :: (oldValue
@@ -1199,14 +1199,14 @@ module Engine =
                             adapterType, fromUi, ticksGuid, value)
                 )
 
-            let getDebugInfo () =
-                $"  {getDebugInfo ()} values={valuesfmt}"
+            let getLocals () =
+                $"  {getLocals ()} values={valuesfmt}"
 
             let _lastAdapterSetAtom, lastAdapterType, lastFromUi, lastTicks, lastValue = newValues.Head
             //                | _ -> ()
 //            let lastAdapterSetAtom, lastAdapterType, (lastFromUi, lastTicks, lastValue) = newValues.Head
 
-            addTimestamp (fun () -> "[ sync ](c1-1) init. from debounce. will fan out") getDebugInfo
+            addTimestamp (fun () -> "[ sync ](c1-1) init. from debounce. will fan out") getLocals
 
             newValues
             |> List.skip 1
@@ -1214,18 +1214,18 @@ module Engine =
                 (function
                 | setAdapterAtom, adapterType, fromUi, ticks, value when value |> Object.compare lastValue |> not ->
                     promise {
-                        let getDebugInfo () =
-                            $" adapterFromUi={fromUi} lastFromUi={lastFromUi} adapterType={adapterType} lastAdapterType={lastAdapterType} lastTicks={lastTicks} ticks={ticks} lastValue={lastValue} value={value} {getDebugInfo ()} "
+                        let getLocals () =
+                            $" adapterFromUi={fromUi} lastFromUi={lastFromUi} adapterType={adapterType} lastAdapterType={lastAdapterType} lastTicks={lastTicks} ticks={ticks} lastValue={lastValue} value={value} {getLocals ()} "
 
                         match lastFromUi, lastTicks, lastValue with
                         | Some lastFromUi, Some lastTicks, Some lastValue when ticks.IsNone || lastTicks > ticks.Value ->
                             // set adapter value from local atom
-                            addTimestamp (fun () -> "[ (%%%%) invalidAdapter.write() ](c4)") getDebugInfo
+                            addTimestamp (fun () -> "[ (%%%%) invalidAdapter.write() ](c4)") getLocals
                             setAdapterAtom (Transaction (lastFromUi, lastTicks, lastValue))
                         | _ ->
                             addTimestamp
                                 (fun () -> "[ (%%%%) invalidAdapter.write() ](c3) same ticks. skipping")
-                                getDebugInfo
+                                getLocals
                     }
                 | _ -> Promise.lift ())
             |> List.toArray
@@ -1251,12 +1251,12 @@ module Engine =
 
         let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
 
-        let getDebugInfo () =
-            $"atomType={atomType} atomPath={atomPath} defaultValue={defaultValue} {getDebugInfo ()}"
+        let getLocals () =
+            $"atomType={atomType} atomPath={atomPath} defaultValue={defaultValue} {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
+        let addTimestamp fn getLocals =
             Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.createAtomWithSubscription {fn ()} | {getDebugInfo ()}")
+                (fun () -> $"{nameof FsStore} | Engine.createAtomWithSubscription {fn ()} | {getLocals ()}")
 
         let localAdaptersAtom =
             createAtomWithGroup storeAtomPath (Atom.AdapterType.Memory, (NotFromUi, defaultValue))
@@ -1268,10 +1268,10 @@ module Engine =
                             (fun (adapterType, (ticksGuid, (fromUi, value: 'A8))) ->
                                 adapterType, (Transaction (fromUi, ticksGuid, AtomValueRef value)))
 
-                    let getDebugInfo () =
-                        $"value={value} result={result} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"value={value} result={result} {getLocals ()}"
 
-                    addTimestamp (fun () -> "[ <((A))> wrapper.get() ](a6)") getDebugInfo
+                    addTimestamp (fun () -> "[ <((A))> wrapper.get() ](a6)") getLocals
                     result)
                 (fun (newValue: (Atom.AdapterType * Transaction) list) ->
                     let newValue =
@@ -1280,31 +1280,31 @@ module Engine =
                             (fun (adapterType, Transaction (ticksGuid, fromUi, value)) ->
                                 adapterType, (fromUi, (ticksGuid, value |> unbox<'A8>)))
 
-                    let getDebugInfo () =
-                        $"newValue={newValue} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"newValue={newValue} {getLocals ()}"
 
-                    addTimestamp (fun () -> "[ <((A))> wrapper.set() ](a6)") getDebugInfo
+                    addTimestamp (fun () -> "[ <((A))> wrapper.set() ](a6)") getLocals
                     newValue)
 
-        let getDebugInfo () =
-            $"localAdaptersAtom={localAdaptersAtom} {getDebugInfo ()}"
+        let getLocals () =
+            $"localAdaptersAtom={localAdaptersAtom} {getLocals ()}"
 
-        addTimestamp (fun () -> "[ constructor ](a1)") getDebugInfo
+        addTimestamp (fun () -> "[ constructor ](a1)") getLocals
 
         let debouncedSync =
             Js.debounce
                 (fun adapterValues ->
-                    addTimestamp (fun () -> "[ debouncedSync ](a2)") getDebugInfo
+                    addTimestamp (fun () -> "[ debouncedSync ](a2)") getLocals
                     sync adapterValues localAdaptersAtom)
                 0
 
         let inline refreshAdapterValues getter =
             let adapterValues = getAdapterValues atomType getter storeAtomPath
 
-            let getDebugInfo () =
-                $"adapterValues={adapterValues} {getDebugInfo ()}"
+            let getLocals () =
+                $"adapterValues={adapterValues} {getLocals ()}"
 
-            addTimestamp (fun () -> "[ refreshAdapterValues ](a3)") getDebugInfo
+            addTimestamp (fun () -> "[ refreshAdapterValues ](a3)") getLocals
             debouncedSync adapterValues
 
         let rec wrapper =
@@ -1315,19 +1315,19 @@ module Engine =
                     let _adapterType, Transaction (_fromUi, _ticks, value) = localAdapters |> List.head
 
 
-                    let getDebugInfo () =
-                        $"_ticks={_ticks} _adapterType={_adapterType} value={value} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"_ticks={_ticks} _adapterType={_adapterType} value={value} {getLocals ()}"
 
-                    addTimestamp (fun () -> "[ wrapper.get() ](a5)") getDebugInfo
+                    addTimestamp (fun () -> "[ wrapper.get() ](a5)") getLocals
 
                     value |> unbox<'A8>)
                 (fun getter setter (newValue: 'A8) ->
                     //                    refreshAdapterValues getter
 
-                    let getDebugInfo () =
-                        $"newValue={newValue} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"newValue={newValue} {getLocals ()}"
 
-                    addTimestamp (fun () -> "[ <&¨¨&> wrapper.set() ](a6)") getDebugInfo
+                    addTimestamp (fun () -> "[ <&¨¨&> wrapper.set() ](a6)") getLocals
 
                     Atom.change
                         setter
@@ -1337,10 +1337,10 @@ module Engine =
                                 Atom.AdapterType.Memory,
                                 Transaction (FromUi, Guid.newTicksGuid (), AtomValueRef newValue)
 
-                            let getDebugInfo () =
-                                $"localAdapters={Json.encodeWithNull localAdapters} newItem={newItem} {getDebugInfo ()}"
+                            let getLocals () =
+                                $"localAdapters={Json.encodeWithNull localAdapters} newItem={newItem} {getLocals ()}"
 
-                            addTimestamp (fun () -> "[ <&¨<->¨&> wrapper.set() ](a6)") getDebugInfo
+                            addTimestamp (fun () -> "[ <&¨<->¨&> wrapper.set() ](a6)") getLocals
 
                             localAdapters
                             |> List.filter (fun (adapterType, _) -> adapterType <> Atom.AdapterType.Memory)
@@ -1351,8 +1351,8 @@ module Engine =
                     let collectionPath = storeAtomPath |> StoreAtomPath.CollectionPath
                     let keys = storeAtomPath |> StoreAtomPath.Keys
 
-                    let getDebugInfo () =
-                        $"collectionPath={collectionPath} keys={keys} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"collectionPath={collectionPath} keys={keys} {getLocals ()}"
 
                     match collectionPath with
                     | Some (storeRoot, collection) when collectionTypeMap.ContainsKey ((storeRoot, collection)) ->
@@ -1368,7 +1368,7 @@ module Engine =
                             | Some keys ->
                                 addTimestamp
                                     (fun () -> "[ updateKey ](a6-1) saving key. invoking collection Atom.change ")
-                                    getDebugInfo
+                                    getLocals
 
                                 Atom.change
                                     setter
@@ -1377,12 +1377,12 @@ module Engine =
                             | None ->
                                 addTimestamp
                                     (fun () -> "[ updateKey ](a6-1) skipping key. skipping Atom.change ")
-                                    getDebugInfo
+                                    getLocals
                         else
                             addTimestamp
                                 (fun () -> "[ updateKey ](a6-3) skipping key2. skipping Atom.change ")
-                                getDebugInfo
-                    | _ -> addTimestamp (fun () -> "[ updateKey ](a6-2) skipping collection Atom.change ") getDebugInfo)
+                                getLocals
+                    | _ -> addTimestamp (fun () -> "[ updateKey ](a6-2) skipping collection Atom.change ") getLocals)
 
         wrapper?init <- defaultValue
 
@@ -1399,13 +1399,13 @@ module Engine =
         let mutable lastSetAtom: ('A9 option -> unit) option = None
         let mutable lastValue = None
 
-        let getDebugInfo () =
-            $"atom1={atom1} atom2={atom2} lastValue={lastValue} {getDebugInfo ()}"
+        let getLocals () =
+            $"atom1={atom1} atom2={atom2} lastValue={lastValue} {getLocals ()}"
 
-        let addTimestamp fn getDebugInfo =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.bindAtom {fn ()} | {getDebugInfo ()}")
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.bindAtom {fn ()} | {getLocals ()}")
 
-        addTimestamp (fun () -> "[ constructor ](b1)") getDebugInfo
+        addTimestamp (fun () -> "[ constructor ](b1)") getLocals
 
         atom1
         |> Atom.wrap
@@ -1419,41 +1419,41 @@ module Engine =
                         || lastValue.IsNone
                         || (Atom.get getter Selectors.Gun.alias).IsNone)
                     ->
-                    let getDebugInfo () =
-                        $"value1={value1} value2={value2} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"value1={value1} value2={value2} {getLocals ()}"
 
-                    addTimestamp (fun () -> "[ wrapper.get() ](b2) choosing value2") getDebugInfo
+                    addTimestamp (fun () -> "[ wrapper.get() ](b2) choosing value2") getLocals
                     value2
                 | value1, value2 ->
-                    let getDebugInfo () =
-                        $"value1={value1} value2={value2} {getDebugInfo ()}"
+                    let getLocals () =
+                        $"value1={value1} value2={value2} {getLocals ()}"
 
                     match lastSetAtom with
                     | Some lastSetAtom when
                         lastValue.IsNone
                         || lastValue |> Object.compare (Some value1) |> not
                         ->
-                        addTimestamp (fun () -> "[ wrapper.get() ](b3) different. triggering additional") getDebugInfo
+                        addTimestamp (fun () -> "[ wrapper.get() ](b3) different. triggering additional") getLocals
 
                         lastValue <- Some value1
                         lastSetAtom (Some value1)
                     | _ -> ()
 
-                    addTimestamp (fun () -> "[ wrapper.get() ](b4) choosing value1") getDebugInfo
+                    addTimestamp (fun () -> "[ wrapper.get() ](b4) choosing value1") getLocals
 
                     value1)
             (fun _get setter newValue ->
-                let getDebugInfo () =
-                    $"newValue={newValue} {getDebugInfo ()}"
+                let getLocals () =
+                    $"newValue={newValue} {getLocals ()}"
 
                 if lastValue.IsNone
                    || lastValue |> Object.compare (Some newValue) |> not then
                     lastValue <- Some newValue
                     Atom.set setter atom1 newValue
 
-                    addTimestamp (fun () -> "[ wrapper.set() ](b5) setting atom1 and atom2") getDebugInfo
+                    addTimestamp (fun () -> "[ wrapper.set() ](b5) setting atom1 and atom2") getLocals
                 else
-                    addTimestamp (fun () -> "[ wrapper.set() ](b6) setting atom2 only") getDebugInfo
+                    addTimestamp (fun () -> "[ wrapper.set() ](b6) setting atom2 only") getLocals
 
                 Atom.set setter atom2 newValue)
 

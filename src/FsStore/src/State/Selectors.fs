@@ -272,10 +272,10 @@ module SelectorsMagic =
                         let alias = Atom.get getter alias
                         let gunOptions = Atom.get getter Atoms.gunOptions
 
-                        let getDebugInfo () =
+                        let getLocals () =
                             $"alias={alias} gunOptions={Json.encodeWithNull gunOptions}"
 
-                        Profiling.addTimestamp (fun () -> $"Selectors.Gun.adapterOptions get() {getDebugInfo ()}")
+                        Profiling.addTimestamp (fun () -> $"Selectors.Gun.adapterOptions get() {getLocals ()}")
 
                         match gunOptions, alias with
                         | GunOptions.Sync peers, Some alias -> Some (Atom.AdapterOptions.Gun (peers, alias))
@@ -420,9 +420,9 @@ module SelectorsMagic =
                         let alias = Atom.get getter Gun.alias
                         let hubUrl = Atom.get getter Atoms.hubUrl
 
-                        let getDebugInfo () = $"alias={alias} hubUrl={hubUrl}"
+                        let getLocals () = $"alias={alias} hubUrl={hubUrl}"
 
-                        Profiling.addTimestamp (fun () -> $"Selectors.Hub.adapterOptions get() {getDebugInfo ()}")
+                        Profiling.addTimestamp (fun () -> $"Selectors.Hub.adapterOptions get() {getLocals ()}")
 
                         match alias, hubUrl with
                         | Some alias, Some (String.Valid hubUrl) -> Some (Atom.AdapterOptions.Hub (hubUrl, alias))

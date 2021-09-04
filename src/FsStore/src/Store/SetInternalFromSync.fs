@@ -10,19 +10,19 @@ open FsStore.Bindings
 
 module SetInternalFromSync =
     module Store =
-        let inline setInternalFromSync getDebugInfo setAtom syncPaused lastValue onError (ticks, newValue, key) =
+        let inline setInternalFromSync getLocals setAtom syncPaused lastValue onError (ticks, newValue, key) =
             try
                 Logger.logTrace
                     (fun () ->
                         $"Store.setInternalFromSync. gun.on() value. start.
-    newValue={newValue} jsTypeof-newValue={jsTypeof newValue} lastValue={lastValue} ticks={ticks} {getDebugInfo ()}")
+    newValue={newValue} jsTypeof-newValue={jsTypeof newValue} lastValue={lastValue} ticks={ticks} {getLocals ()}")
 
                 match syncPaused, lastValue with
                 | true, _ ->
                     Logger.logTrace
                         (fun () ->
                             $"Store.setInternalFromSync. gun.on() value. skipping. Sync paused.
-    newValue={newValue} jsTypeof-newValue={jsTypeof newValue} lastValue={lastValue} ticks={ticks} {getDebugInfo ()}")
+    newValue={newValue} jsTypeof-newValue={jsTypeof newValue} lastValue={lastValue} ticks={ticks} {getLocals ()}")
                 | _, Some (lastValueTicks, lastValue) when
                     match lastValue |> Option.ofObjUnbox, newValue |> Option.ofObjUnbox with
                     | _, _ when lastValueTicks > ticks -> true
@@ -35,13 +35,13 @@ module SetInternalFromSync =
                     Logger.logTrace
                         (fun () ->
                             $"Store.setInternalFromSync. gun.on() value. skipping.
-    newValue={newValue} jsTypeof-newValue={jsTypeof newValue} lastValue={lastValue} ticks={ticks} {getDebugInfo ()} ")
+    newValue={newValue} jsTypeof-newValue={jsTypeof newValue} lastValue={lastValue} ticks={ticks} {getLocals ()} ")
                 | _ ->
                     if unbox newValue = JS.undefined then
                         Logger.logTrace
                             (fun () ->
                                 $"Store.setInternalFromSync. gun.on() value. skipping. newValue=undefined
-    newValue={newValue} jsTypeof-newValue={jsTypeof newValue} lastValue={lastValue} ticks={ticks} {getDebugInfo ()}")
+    newValue={newValue} jsTypeof-newValue={jsTypeof newValue} lastValue={lastValue} ticks={ticks} {getLocals ()}")
                     else
                         try
                             Logger.logTrace
@@ -55,10 +55,10 @@ module SetInternalFromSync =
                                         (Logger.logError
                                             (fun () ->
                                                 $"Store.setInternalFromSync. should have skipped assign
-            lastValue={lastValue} typeof _lastValue={jsTypeof _lastValue} newValue={newValue} typeof newValue={jsTypeof newValue} ticks={ticks} {getDebugInfo ()}"))
+            lastValue={lastValue} typeof _lastValue={jsTypeof _lastValue} newValue={newValue} typeof newValue={jsTypeof newValue} ticks={ticks} {getLocals ()}"))
 
                                     $"Store.setInternalFromSync. gun.on() value. triggering. ##
-            lastValue={lastValue} typeof _lastValue={jsTypeof _lastValue} newValue={newValue} typeof newValue={jsTypeof newValue} ticks={ticks} {getDebugInfo ()}")
+            lastValue={lastValue} typeof _lastValue={jsTypeof _lastValue} newValue={newValue} typeof newValue={jsTypeof newValue} ticks={ticks} {getLocals ()}")
 
                             //                        Browser.Dom.window?atomPath <- atomPath
                             //                        Browser.Dom.window?lastValue <- _lastValue

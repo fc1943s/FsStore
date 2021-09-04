@@ -15,7 +15,7 @@ open FsStore.Bindings
 module PutFromUi =
     module Store =
         let inline putFromUi<'TValue>
-            (getDebugInfo: unit -> string)
+            (getLocals: unit -> string)
             (syncEngine: SyncEngine<'TValue>)
             (syncTrigger: TicksGuid * AdapterType * 'TValue option -> unit)
             (ticks, newValue)
@@ -53,7 +53,7 @@ module PutFromUi =
                             Logger.logTrace
                                 (fun () ->
                                     $"Store.putFromUi. atomFamily.wrapper.set() debounceGunPut promise. #3.
-        before put newValue={newValue} {getDebugInfo ()}")
+        before put newValue={newValue} {getLocals ()}")
 
                             let hubValue =
                                 match syncState.AdapterValueMapByType with
@@ -70,7 +70,7 @@ module PutFromUi =
                                 Logger.logTrace
                                     (fun () ->
                                         $"Store.putFromUi. debouncedPut() HUB SKIPPED
-        newValue={newValue} jsTypeof-newValue={jsTypeof newValue} {getDebugInfo ()}")
+        newValue={newValue} jsTypeof-newValue={jsTypeof newValue} {getLocals ()}")
                             | _ ->
                                 match syncEngine.GetAtomPath (), syncEngine.GetHub (), syncEngine.GetAlias () with
                                 | Some (AtomPath atomPath), Some hub, Some (Gun.Alias alias) ->
@@ -97,7 +97,7 @@ module PutFromUi =
                                 | _ ->
                                     Logger.logTrace
                                         (fun () ->
-                                            $"Store.putFromUi. [wrapper.on() HUB put]. skipping. newValue={newValue} {getDebugInfo ()} ")
+                                            $"Store.putFromUi. [wrapper.on() HUB put]. skipping. newValue={newValue} {getLocals ()} ")
 
                             let gunValue =
                                 match syncState.AdapterValueMapByType with
@@ -130,7 +130,7 @@ module PutFromUi =
 
                                         Logger.logTrace
                                             (fun () ->
-                                                $"Store.putFromUi. atomFamily.wrapper.set() debounceGunPut promise result. newValue={newValue} {getDebugInfo ()} ")
+                                                $"Store.putFromUi. atomFamily.wrapper.set() debounceGunPut promise result. newValue={newValue} {getLocals ()} ")
                                     else
                                         Browser.Dom.window?lastPutResult <- putResult
 
@@ -139,19 +139,19 @@ module PutFromUi =
                                             if window?Cypress = null then
                                                 Logger.logError
                                                     (fun () ->
-                                                        $"Store.putFromUi. atomFamily.wrapper.set() debounceGunPut promise put error. newValue={newValue} putResult={putResult} {getDebugInfo ()}")
+                                                        $"Store.putFromUi. atomFamily.wrapper.set() debounceGunPut promise put error. newValue={newValue} putResult={putResult} {getLocals ()}")
                                         | None -> ()
                             | _ ->
                                 Logger.logTrace
                                     (fun () ->
-                                        $"Store.putFromUi. debouncedPut() SKIPPED newValue={newValue} jsTypeof-newValue={jsTypeof newValue} {getDebugInfo ()}")
+                                        $"Store.putFromUi. debouncedPut() SKIPPED newValue={newValue} jsTypeof-newValue={jsTypeof newValue} {getLocals ()}")
                         | None -> Logger.logTrace (fun () -> $"atomFamily.wrapper.set(). skipped ...")
 
 
                     | None ->
                         Logger.logTrace
                             (fun () ->
-                                $"<filter> Store.putFromUi. [gunEffect.debounceGunPut promise] skipping gun put. no gun atom node. newValue={newValue} {getDebugInfo ()}")
+                                $"<filter> Store.putFromUi. [gunEffect.debounceGunPut promise] skipping gun put. no gun atom node. newValue={newValue} {getLocals ()}")
                 with
                 | ex -> Logger.logError (fun () -> $"Store.putFromUi. ex={ex} newValue={newValue}")
 

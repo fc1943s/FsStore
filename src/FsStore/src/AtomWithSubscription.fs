@@ -17,7 +17,7 @@ module AtomWithSubscription =
 
         let storeAtomPath = null
 
-        let getDebugInfo () =
+        let getLocals () =
             $"""
         | wrapAtomWithSubscription debugInfo:
         defaultValue={defaultValue}
@@ -35,19 +35,19 @@ module AtomWithSubscription =
             (fun getter _setter _setAtom ->
                 promise {
                     let logger = Logger.State.lastLogger
-                    logger.Trace (fun () -> $"Store.wrapAtomWithSubscription. onMount() {getDebugInfo ()}")
+                    logger.Trace (fun () -> $"Store.wrapAtomWithSubscription. onMount() {getLocals ()}")
 
                     lastAlias <- Atom.get getter Selectors.Gun.alias
                     lastGunOptions <- Some (Atom.get getter Atoms.gunOptions)
                     //                    lastGunAtomNode <- getGunAtomNode ()
 
-                    logger.Trace (fun () -> $"Store.wrapAtomWithSubscription. #2 timeout  {getDebugInfo ()}")
+                    logger.Trace (fun () -> $"Store.wrapAtomWithSubscription. #2 timeout  {getLocals ()}")
 
                     do! mount ()
                 })
             (fun _getter _setter ->
                 let logger = Logger.State.lastLogger
-                logger.Trace (fun () -> $"Store.wrapAtomWithSubscription onUnmount() {getDebugInfo ()}")
+                logger.Trace (fun () -> $"Store.wrapAtomWithSubscription onUnmount() {getLocals ()}")
                 unmount()
 
                 ())
@@ -74,7 +74,7 @@ module AtomWithSubscription =
 //        let mutable lastGunOptions = None
 //        let mutable lastGunAtomNode = None
 //
-//        let getDebugInfo () =
+//        let getLocals () =
 //            $"""
 //        | atomWithSubscription debugInfo:
 //        storeAtomPath={storeAtomPath}
@@ -91,7 +91,7 @@ module AtomWithSubscription =
 //
 //        let refreshSubscriptions () =
 //            promise {
-//                Logger.logTrace (fun () -> $"Store.atomWithSubscription. refreshSubscriptions {getDebugInfo ()} ") }
+//                Logger.logTrace (fun () -> $"Store.atomWithSubscription. refreshSubscriptions {getLocals ()} ") }
 //
 //        let debouncedRefreshSubscriptions = Js.debounce (fun () -> refreshSubscriptions () |> Promise.start) 0
 //
@@ -108,24 +108,24 @@ module AtomWithSubscription =
 //            lastGunAtomNode <- getGunAtomNode ()
 //
 //            Logger.logTrace
-//                (fun () -> $"Store.atomWithSubscription refreshInternalState. wrapper.get() {getDebugInfo ()} ")
+//                (fun () -> $"Store.atomWithSubscription refreshInternalState. wrapper.get() {getLocals ()} ")
 //
 //            match lastGunAtomNode with
 //            | Some _ ->
-//                printfn $"@@@@ subscription here {getDebugInfo ()}"
+//                printfn $"@@@@ subscription here {getLocals ()}"
 //                debouncedRefreshSubscriptions ()
 //
 //            //                match subscription with
 ////                | Some (_, None) ->
 ////                    Logger.logTrace
 ////                        (fun () ->
-////                            $"Store.atomWithSubscription refreshInternalState. subscription and gun node present but no disposable. subscribing. {getDebugInfo ()}")
+////                            $"Store.atomWithSubscription refreshInternalState. subscription and gun node present but no disposable. subscribing. {getLocals ()}")
 ////                    debouncedSubscribe ()
-////                | _ -> Logger.logTrace (fun () -> $"SyncEngine.SetProviders. gun node present. {getDebugInfo ()}")
+////                | _ -> Logger.logTrace (fun () -> $"SyncEngine.SetProviders. gun node present. {getLocals ()}")
 //
 //            | _ ->
 //                Logger.logTrace
-//                    (fun () -> $"Store.atomWithSubscription refreshInternalState. empty gun node {getDebugInfo ()} ")
+//                    (fun () -> $"Store.atomWithSubscription refreshInternalState. empty gun node {getLocals ()} ")
 //
 //        let rec wrapper =
 //            Atom.Primitives.selector
@@ -135,7 +135,7 @@ module AtomWithSubscription =
 //
 //                    Logger.logTrace
 //                        (fun () ->
-//                            $"Store.atomWithSubscription wrapper.get() wrapper={wrapper} result={result} {getDebugInfo ()} ")
+//                            $"Store.atomWithSubscription wrapper.get() wrapper={wrapper} result={result} {getLocals ()} ")
 //
 //                    result)
 //                (fun getter setter newValueFn ->
@@ -151,7 +151,7 @@ module AtomWithSubscription =
 //                                Logger.logTrace
 //                                    (fun () ->
 //                                        $"Store.atomWithSubscription wrapper.set() oldValue={oldValue} newValue={newValue}
-//                                                newValueFn={newValueFn} wrapper={wrapper} {getDebugInfo ()} ")
+//                                                newValueFn={newValueFn} wrapper={wrapper} {getLocals ()} ")
 //
 //                                newValue)))
 //            |> Atom.wrap
@@ -160,16 +160,16 @@ module AtomWithSubscription =
 //                    promise {
 //                        Logger.logTrace
 //                            (fun () ->
-//                                $"Store.atomWithSubscription. internal subscribe wrapper={wrapper} {getDebugInfo ()} ")
+//                                $"Store.atomWithSubscription. internal subscribe wrapper={wrapper} {getLocals ()} ")
 //                    //            subscribe ()
 //                    })
 //                (fun () ->
 //                    Logger.logTrace
 //                        (fun () ->
-//                            $"Store.atomWithSubscription. internal unsubscribe wrapper={wrapper} {getDebugInfo ()} "))
+//                            $"Store.atomWithSubscription. internal unsubscribe wrapper={wrapper} {getLocals ()} "))
 //
 //
-//        Logger.logTrace (fun () -> $"Store.atomWithSubscription constructor wrapper={wrapper} {getDebugInfo ()}")
+//        Logger.logTrace (fun () -> $"Store.atomWithSubscription constructor wrapper={wrapper} {getLocals ()}")
 //
 //        wrapper?init <- defaultValue
 //
@@ -413,7 +413,7 @@ module AtomWithSubscription =
 //                let syncEngine = SyncEngine.Store.SyncEngine ([||], Some (fun (key, node) -> key, node.back().back ()))
 //
 //
-//                let getDebugInfo () =
+//                let getLocals () =
 //                    $"""
 //        | selectAtomSyncKeys debugInfo:
 //        syncEngine={Json.encodeWithNull syncEngine}
@@ -445,7 +445,7 @@ module AtomWithSubscription =
 //
 //                            Logger.logTrace
 //                                (fun () ->
-//                                    $"Store.selectAtomSyncKeys wrapper.get() wrapper={wrapper} result={result} {getDebugInfo ()} ")
+//                                    $"Store.selectAtomSyncKeys wrapper.get() wrapper={wrapper} result={result} {getLocals ()} ")
 //
 //                            result)
 //                        (fun getter setter newValueFn ->
@@ -461,7 +461,7 @@ module AtomWithSubscription =
 //                                        Logger.logTrace
 //                                            (fun () ->
 //                                                $"Store.selectAtomSyncKeys wrapper.set() oldValue={oldValue} newValue={newValue}
-//                                                newValueFn={newValueFn} wrapper={wrapper} {getDebugInfo ()} ")
+//                                                newValueFn={newValueFn} wrapper={wrapper} {getLocals ()} ")
 //
 //                                        newValue)))
 //
@@ -472,7 +472,7 @@ module AtomWithSubscription =
 //                                       | Some (getter, setter) ->
 //                                           let value = Atom.value getter atom1
 //
-//                                           if (getDebugInfo ()).Contains "/pub" then
+//                                           if (getLocals ()).Contains "/pub" then
 //                                               Profiling.addCount
 //                                                   $">>> Mmount. setting value. atom={value} d:{syncEngine.GetDebugSummary ()}"
 //
@@ -487,7 +487,7 @@ module AtomWithSubscription =
 //                                           | Some (getter, setter) ->
 //                                               let value = Atom.value getter atom1
 //
-//                                               if (getDebugInfo ()).Contains "/pub" then
+//                                               if (getLocals ()).Contains "/pub" then
 //                                                   Profiling.addCount
 //                                                       $"<<< Umount. setting value. atom={value} d:{syncEngine.GetDebugSummary ()}"
 //
@@ -498,7 +498,7 @@ module AtomWithSubscription =
 //
 //                Logger.logTrace
 //                    (fun () ->
-//                        $"Store.selectAtomSyncKeys constructor wrapper={wrapper} lastValue={lastValue} lastSubscription={lastSubscription} {getDebugInfo ()}")
+//                        $"Store.selectAtomSyncKeys constructor wrapper={wrapper} lastValue={lastValue} lastSubscription={lastSubscription} {getLocals ()}")
 //
 //                wrapper?init <- [||]
 //
