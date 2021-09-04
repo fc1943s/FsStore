@@ -108,7 +108,7 @@ module SelectorsMagic =
             let collection = Collection (nameof Gun)
 
             let rec readSelector name fn =
-                Atom.readSelector (IndexedAtomPath (FsStore.storeRoot, collection, [], AtomName name)) fn
+                Atom.readSelector (ValueAtomPath (FsStore.storeRoot, collection, [], AtomName name)) fn
 
             let rec gunPeers =
                 readSelector
@@ -288,7 +288,7 @@ module SelectorsMagic =
             let collection = Collection (nameof Hub)
 
             let inline readSelector name fn =
-                Atom.readSelector (IndexedAtomPath (FsStore.storeRoot, collection, [], AtomName name)) fn
+                Atom.readSelector (ValueAtomPath (FsStore.storeRoot, collection, [], AtomName name)) fn
 
             let hubSubscriptionMap = Dictionary<Gun.Alias * StoreRoot * Collection, string [] -> unit> ()
 

@@ -24,7 +24,7 @@ module rec Message =
         Atom.Primitives.atomFamily
             (fun (messageId: MessageId) ->
                 Engine.createAtomWithSubscription
-                    (IndexedAtomPath (FsStore.storeRoot, collection, formatMessageId messageId, atomName))
+                    (ValueAtomPath (FsStore.storeRoot, collection, formatMessageId messageId, atomName))
                     defaultValue)
 
     let rec ack = messageAtomFamilyWithAdapters (AtomName (nameof ack)) (None: bool option)

@@ -15,7 +15,7 @@ module rec File =
         Atom.Primitives.atomFamily
             (fun (fileId: FileId) ->
                 Atom.create
-                    (IndexedAtomPath (
+                    (ValueAtomPath (
                         FsStore.storeRoot,
                         Atoms.File.collection,
                         Atoms.File.formatFileId fileId,

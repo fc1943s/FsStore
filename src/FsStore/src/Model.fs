@@ -28,7 +28,8 @@ module Model =
     type StoreAtomPath =
         | RootAtomPath of storeRoot: StoreRoot * name: AtomName
         | CollectionAtomPath of storeRoot: StoreRoot * collection: Collection
-        | IndexedAtomPath of
+        | RecordAtomPath of storeRoot: StoreRoot * collection: Collection * keys: Gun.AtomKeyFragment list
+        | ValueAtomPath of
             storeRoot: StoreRoot *
             collection: Collection *
             keys: Gun.AtomKeyFragment list *
@@ -158,7 +159,8 @@ module Model =
                 match storeAtomPath with
                 | RootAtomPath (storeRoot, name) -> storeRoot, None, [], Some name
                 | CollectionAtomPath (storeRoot, collection) -> storeRoot, Some collection, [], None
-                | IndexedAtomPath (storeRoot, collection, keys, name) -> storeRoot, Some collection, keys, Some name
+                | RecordAtomPath (storeRoot, collection, keys) -> storeRoot, Some collection, keys, None
+                | ValueAtomPath (storeRoot, collection, keys, name) -> storeRoot, Some collection, keys, Some name
 
             [
                 yield storeRoot |> StoreRoot.Value
@@ -177,9 +179,10 @@ module Model =
             match storeAtomPath with
             | RootAtomPath _ -> None
             | CollectionAtomPath (storeRoot, collection) -> Some (storeRoot, collection)
-            | IndexedAtomPath (storeRoot, collection, _, _) -> Some (storeRoot, collection)
+            | RecordAtomPath (storeRoot, collection, _) -> Some (storeRoot, collection)
+            | ValueAtomPath (storeRoot, collection, _, _) -> Some (storeRoot, collection)
 
         static member inline Keys storeAtomPath =
             match storeAtomPath with
-            | IndexedAtomPath (_, _, keys, _) -> keys |> List.toArray |> Some
+            | ValueAtomPath (_, _, keys, _) -> keys |> List.toArray |> Some
             | _ -> None

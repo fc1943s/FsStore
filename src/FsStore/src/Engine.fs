@@ -387,7 +387,7 @@ module Engine =
 
                             let setAdapterValues =
                                 match storeAtomPath with
-                                | IndexedAtomPath (_, _, _, name)
+                                | ValueAtomPath (_, _, _, name)
                                 | RootAtomPath (_, name) ->
                                     addTimestamp
                                         (fun () -> $"[ |--| mount ] invoking indexed subscribe. name={name} ")
@@ -607,6 +607,9 @@ module Engine =
                                             getDebugInfo
 
                                     Some setAdapterValue
+                                | _ ->
+                                    addTimestamp (fun () -> "[ mountFn ](j2-2) invalid atom path ") getDebugInfo
+                                    None
 
 
                             addTimestamp (fun () -> "[ ||||||||| mountFn ](j2) gun. will batch subscribe") getDebugInfo
@@ -1386,7 +1389,7 @@ module Engine =
         Atom.Primitives.atomFamily
             (fun param ->
                 createAtomWithSubscription
-                    (StoreAtomPath.IndexedAtomPath (storeRoot, collection, formatFn param, AtomName name))
+                    (StoreAtomPath.ValueAtomPath (storeRoot, collection, formatFn param, AtomName name))
                     (defaultValueFn param))
 
     let inline bindAtom<'A9 when 'A9: equality> atom1 (atom2: Jotai.AtomConfig<_>) =

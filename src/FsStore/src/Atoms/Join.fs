@@ -19,7 +19,7 @@ module rec Join =
             Atom.Primitives.atomFamily
                 (fun (atomPathGuidHash: Guid) ->
                     Engine.createAtomWithSubscription
-                        (IndexedAtomPath (
+                        (ValueAtomPath (
                             FsStore.storeRoot,
                             collection,
                             [

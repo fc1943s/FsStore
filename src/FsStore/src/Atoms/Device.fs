@@ -24,7 +24,7 @@ module rec Device =
         Atom.Primitives.atomFamily
             (fun (deviceId: DeviceId) ->
                 Engine.createAtomWithSubscription
-                    (IndexedAtomPath (
+                    (ValueAtomPath (
                         FsStore.storeRoot,
                         collection,
                         formatDeviceId deviceId,
@@ -36,7 +36,7 @@ module rec Device =
         Atom.Primitives.atomFamily
             (fun (deviceId: DeviceId) ->
                 Atom.create
-                    (IndexedAtomPath (
+                    (ValueAtomPath (
                         FsStore.storeRoot,
                         collection,
                         formatDeviceId deviceId,
