@@ -2,6 +2,7 @@ namespace FsStore.Hooks
 
 open Fable.Extras
 open Fable.Core
+open Feliz
 open FsJs
 open FsStore
 open FsStore.Bindings
@@ -147,3 +148,43 @@ module rec Auth =
                                 | _ -> return Error $"Invalid ack: {JS.JSON.stringify ack}"
                             }
                 })
+
+    let inline useGunAliasLoader () =
+        let setInternalAlias = Store.useSetState Atoms.internalAlias
+        let gun = Store.useValue Selectors.Gun.gun
+        let privateKeys = Store.useValue Selectors.Gun.privateKeys
+        let logger = Store.useValue Selectors.logger
+
+        let getLocals () =
+            $"privateKeys.IsSome={privateKeys.IsSome}"
+
+        let logDebug fn getLocals =
+            logger.Debug (fun () -> $"Auth.useGunAliasLoader {fn ()} {getLocals ()}")
+
+        React.useEffect (
+            (fun () ->
+                promise {
+                    match privateKeys with
+                    | Some privateKeys ->
+                        let! data = Gun.aliasRadQuery gun
+                        let! newAlias = Gun.userDecode<Gun.Alias> privateKeys data
+                        let getLocals () = $"data={data} newAlias={newAlias}"
+
+                        match newAlias with
+                        | Some alias ->
+                            logDebug (fun () -> "setting internal alias") getLocals
+                            setInternalAlias (Some alias)
+                        | None ->
+                            logDebug (fun () -> "setting none. no alias") getLocals
+                            setInternalAlias None
+                    | None ->
+                        logDebug (fun () -> "setting none. no keys") getLocals
+                        setInternalAlias None
+                }
+                |> Promise.start),
+            [|
+                box gun
+                box privateKeys
+                box logger
+            |]
+        )

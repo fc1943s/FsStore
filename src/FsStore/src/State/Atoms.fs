@@ -1,5 +1,6 @@
 namespace FsStore.State
 
+open FsStore.Bindings
 open FsStore.Model
 open FsStore
 open Microsoft.FSharp.Core.Operators
@@ -29,6 +30,11 @@ module AtomsMagic =
 
         let rec sessionRestored =
             Atom.create (RootAtomPath (FsStore.storeRoot, AtomName (nameof sessionRestored))) (AtomType.Atom false)
+
+        let rec internalAlias =
+            Atom.create
+                (RootAtomPath (FsStore.storeRoot, AtomName (nameof internalAlias)))
+                (AtomType.Atom (None: Gun.Alias option))
 
         let rec gunTrigger =
             Atom.create (RootAtomPath (FsStore.storeRoot, AtomName (nameof gunTrigger))) (AtomType.Atom 0)

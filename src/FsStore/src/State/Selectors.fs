@@ -185,7 +185,6 @@ module SelectorsMagic =
                 readSelector
                     (nameof alias)
                     (fun getter ->
-                        //                    Atom.value getter asyncAlias
                         let logger = Atom.get getter logger
                         let _gunTrigger = Atom.get getter Atoms.gunTrigger
                         let gunUser = Atom.get getter Gun.gunUser
@@ -200,62 +199,12 @@ module SelectorsMagic =
 
                             Some (Alias alias)
                         | _ ->
-                            match gunUser.is with
-                            | Some {
-                                       alias = Some (GunUserAlias.GunKeys { priv = Some (Priv (String.Valid _)) })
-                                   } ->
-                                logger.Debug
-                                    (fun () ->
-                                        $"Selectors.Gun.alias. alias not found. keys found. user.is={gunUser.is |> Js.objectKeys}")
-
-                                None
-                            | _ ->
-                                logger.Debug
-                                    (fun () ->
-                                        $"Selectors.Gun.alias. returning none.
-                                                                          user.is={JS.JSON.stringify gunUser.is}")
-
-                                None)
-
-            let rec asyncAlias =
-                Atom.asyncReadSelector
-                    (IndexedAtomPath (FsStore.storeRoot, collection, [], AtomName (nameof asyncAlias)))
-                    (fun getter ->
-                        promise {
-                            let alias = Atom.get getter alias
-                            let _gunTrigger = Atom.get getter Atoms.gunTrigger
-                            let logger = Atom.get getter logger
-
-                            let getLocals () =
-                                $"_gunTrigger={_gunTrigger} alias={alias}"
-
-                            logger.Debug (fun () -> $"Selectors.Gun.asyncAlias. {getLocals ()}")
-
-                            match alias with
-                            | Some alias -> return Some alias
-                            | None ->
-                                let gun = Atom.get getter Gun.gun
-                                let user = gun.user ()
-
-                                match user.__.sea with
-                                | Some ({ priv = Some (Priv (String.Valid _)) } as keys) ->
-                                    let! data = aliasRadQuery gun
-                                    let! alias = userDecode<Gun.Alias> keys data
-
-                                    logger.Debug
-                                        (fun () ->
-                                            $"Selectors.Gun.asyncAlias. returning alias. alias={alias}
-                                                                                  user.is={JS.JSON.stringify user.is}")
-
-                                    return alias
-                                | _ ->
-                                    logger.Debug
-                                        (fun () ->
-                                            $"Selectors.Gun.asyncAlias. returning none.
-                                                                                      user.is={JS.JSON.stringify user.is}")
-
-                                    return None
-                        })
+                            match gunUser.__.sea with
+                            | Some { priv = Some (Priv (String.Valid _)) } ->
+                                let internalAlias = Atom.get getter Atoms.internalAlias
+                                logger.Debug (fun () -> $"Selectors.Gun.alias. internalAlias={internalAlias}")
+                                internalAlias
+                            | _ -> None)
 
             let rec privateKeys =
                 readSelector

@@ -192,10 +192,6 @@ module Store =
 
     let inline useSetState atom = jotaiUtils.useUpdateAtom atom
 
-    //    let inline useSetStatePrev<'T> atom =
-//        let setter = jotaiUtils.useUpdateAtom<'T> atom
-//        fun (value: 'T -> 'T) -> setter (unbox value)
-
     let rec globalHashCache = Dom.Global.register (nameof globalHashCache) (Dictionary<obj, bool> ())
 
     let inline useHashedEffectOnce hash fn =
