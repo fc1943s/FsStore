@@ -2,10 +2,10 @@ namespace FsStore.Store
 
 open Fable.Core.JsInterop
 open System
+open FsBeacon.Shared
 open FsStore
 open FsStore.BaseStore.Store
 open FsStore.Model
-open FsStore.State
 open FsStore.Store.SyncEngine.Store
 open Microsoft.FSharp.Core.Operators
 open FsCore
@@ -27,8 +27,7 @@ module SyncSubscribe =
                 match syncEngine.GetGunAtomNode (), syncState.GunSubscription with
                 | _, Some _ ->
                     Logger.logTrace
-                        (fun () ->
-                            $"Store.syncSubscribe. skipping subscribe, lastSubscription is set. {getLocals ()} ")
+                        (fun () -> $"Store.syncSubscribe. skipping subscribe, lastSubscription is set. {getLocals ()} ")
                 | Some gunAtomNode, None ->
                     let gunKeys =
                         let user = gunAtomNode.user ()
@@ -181,8 +180,7 @@ module SyncSubscribe =
 
                             syncState.GunSubscription <- Some DateTime.Now.Ticks
                         | _ -> Logger.logTrace (fun () -> $"Store.syncSubscribe. skipping. {getLocals ()} ")
-                    | _ ->
-                        Logger.logTrace (fun () -> $"Store.syncSubscribe. skipping. gun keys empty {getLocals ()} ")
+                    | _ -> Logger.logTrace (fun () -> $"Store.syncSubscribe. skipping. gun keys empty {getLocals ()} ")
 
                 | None, _ ->
                     Logger.logTrace

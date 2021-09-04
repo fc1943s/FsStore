@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open Fable.Core.JsInterop
 open Fable.Core
+open FsBeacon.Shared
 open FsCore.BaseModel
 open FsJs
 open FsStore.Bindings
@@ -56,8 +57,7 @@ module Engine =
                 $"commands={commands} newState={newState} processedMessages={processedMessages} {getLocals ()}"
 
             let addTimestamp fn getLocals =
-                Profiling.addTimestamp
-                    (fun () -> $"{nameof FsStore} | Engine.consumeCommands {fn ()} | {getLocals ()}")
+                Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.consumeCommands {fn ()} | {getLocals ()}")
 
             addTimestamp (fun () -> "[ ](_1)") getLocals
 
@@ -95,8 +95,7 @@ module Engine =
             $" | atom={atom} mounted={mounted} lastState.IsSome={lastState.IsSome}  {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithState {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithState {fn ()} | {getLocals ()}")
 
         addTimestamp (fun () -> "[ constructor ](g1)") getLocals
 
@@ -180,8 +179,7 @@ module Engine =
             (fun _getter setter newValue ->
                 //                    refreshInternalState getter
 
-                let getLocals () =
-                    $"newValue={newValue}  {getLocals ()}"
+                let getLocals () = $"newValue={newValue}  {getLocals ()}"
 
                 addTimestamp (fun () -> "[ wrapper.set() ](g9)") getLocals
                 Atom.set setter atom newValue)
@@ -231,8 +229,7 @@ module Engine =
                                 let atomValue = Atom.get getter atom
 
                                 if Some atomValue |> Object.compare lastValue |> not then
-                                    let getLocals () =
-                                        $"atomValue={atomValue} {getLocals ()}"
+                                    let getLocals () = $"atomValue={atomValue} {getLocals ()}"
 
                                     addTimestamp
                                         (fun () -> "[ wrapper.mount.fn() ](h3) interval fn. triggering new value")
@@ -279,7 +276,7 @@ module Engine =
     let collectionTypeMap = Dictionary<StoreRoot * Collection, Type> ()
 
 
-    let inline batchPutFromUi atomType (gunAtomNode, privateKeys, ticks, newValue: AtomValueRef, onPut) =
+    let inline batchGunPutFromUi atomType (gunAtomNode, privateKeys, ticks, newValue: AtomValueRef, onPut) =
         let getLocals () =
             $"atomType={atomType} ticks={ticks} newValue={newValue} {getLocals ()}"
 
@@ -309,8 +306,7 @@ module Engine =
                                 gunAtomNode
                                 (Gun.GunValue.EncryptedSignedValue (Gun.EncryptedSignedValue newValueJson))
 
-                        let getLocals () =
-                            $"putResult={putResult} {getLocals ()}"
+                        let getLocals () = $"putResult={putResult} {getLocals ()}"
 
                         addTimestamp (fun () -> "[ batchSetFn ](i1)") getLocals
                         if putResult then onPut ()
@@ -350,11 +346,119 @@ module Engine =
 
     type Transaction = Transaction of fromUi: FromUi * ticks: TicksGuid * value: AtomValueRef
 
+
+    let lastCollectionValueMap = Dictionary<StoreAtomPath, Set<Gun.AtomKeyFragment>> ()
+
+    let inline batchKeys storeAtomPath atomType kind data (setAtom: Gun.AtomKeyFragment [] -> JS.Promise<unit>) =
+
+        let getLocals () =
+            $"atomType={atomType} atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
+
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKeys {fn ()} | {getLocals ()}")
+
+        addTimestamp (fun () -> "[ body ]") getLocals
+
+        Gun.batchKeys
+            atomType
+            setAtom
+            data
+            (fun itemsArray ->
+                let newSet = itemsArray |> Seq.collect snd |> Set.ofSeq
+
+                let lastValue =
+                    lastCollectionValueMap
+                    |> Map.tryFindDictionary storeAtomPath
+                    |> Option.defaultValue Set.empty
+
+                let merge =
+                    match kind with
+                    | BatchKind.Replace -> newSet
+                    | BatchKind.Union -> lastValue |> Set.union newSet
+                    | BatchKind.Remove -> newSet |> Set.difference lastValue
+
+                lastCollectionValueMap.[storeAtomPath] <- merge
+                let items = merge |> Set.toArray
+
+
+                //                    let newItems =
+                //                        itemsArray
+                //                        |> Seq.collect snd
+                //                        |> Seq.filter (lastSet.Contains >> not)
+                //                        |> Seq.toArray
+                //
+                //                    let items =
+                //                        itemsArray
+                //                        |> Array.collect snd
+                //                        |> Array.append newItems
+                //                        |> Array.distinct
+                //
+                //                    lastValue <- Some (newItems |> Set.ofArray |> Set.union lastSet)
+                let getLocals () =
+                    $"lastValue={lastValue} items={items} itemsArray={itemsArray} {getLocals ()}"
+
+                addTimestamp (fun () -> "[ Gun.batchKeys ](y2) ") getLocals
+
+                items)
+
+    //                                    let batchKeysAtom (fromUi: FromUi, ticks, value) kind =
+    //                                        batchKeys adapterSetAtom (fromUi, ticks, value) kind
+
+    let inline batchKeysAtom setter atomType onFormat kind (alias, storeRoot, collection) (fromUi, ticks, value) =
+        let storeAtomPath = CollectionAtomPath (storeRoot, collection)
+
+        let getLocals () =
+            $"atomType={atomType} kind={kind} alias={alias} storeRoot={storeRoot} collection={collection} fromUi={fromUi} ticks={ticks} value={value} {getLocals ()}"
+
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKeysAtom {fn ()} | {getLocals ()}")
+
+        addTimestamp (fun () -> "[ body ]") getLocals
+
+        batchKeys
+            storeAtomPath
+            atomType
+            kind
+            (ticks, value |> Array.singleton)
+            (fun keys ->
+                promise {
+                    let newMap =
+                        keys
+                        |> Array.map Array.singleton
+                        |> Array.map onFormat
+                        |> Array.choose
+                            (function
+                            | Some formattedKey -> Some (formattedKey, KeyOperation.Add)
+                            | None -> None)
+                        |> Map.ofArray
+
+                    let getLocals () = $"keys={keys} newMap {getLocals ()}"
+
+                    addTimestamp
+                        (fun () ->
+                            "[ batchKeysAtom ](y2) invoking keys adapterSetAtom (skipping 'adapterSetAtom (Transaction (fromUi, ticks, atomValueRef))' call) ")
+                        getLocals
+
+                    Atom.change
+                        setter
+                        (collectionKeysFamily (alias, storeRoot, collection))
+                        (fun oldValue -> oldValue |> Map.union newMap)
+                })
+
+    let inline newHashedDisposable (ticks: TicksGuid) =
+        promise {
+            Logger.logDebug (fun () -> $"BaseStore.newHashedDisposable constructor ticks={ticks}")
+
+            return
+                Object.newDisposable
+                    (fun () -> Logger.logDebug (fun () -> $"BaseStore.newHashedDisposable disposing... ticks={ticks}"))
+        }
+
     let inline getAdapterSubscription atomType adapterType =
 
         let typeMetadata = typeMetadataMap.[atomType]
 
-        let debouncedBatchPutFromUi = Js.debounce (batchPutFromUi atomType) 0
+        let debouncedGunBatchPutFromUi = Js.debounce (batchGunPutFromUi atomType) 0
 
         let getLocals () =
             $"atomType={atomType} adapterType={adapterType} {getLocals ()}"
@@ -367,13 +471,11 @@ module Engine =
             match adapterType with
             | Atom.AdapterType.Gun ->
                 (fun storeAtomPath getter setter adapterOptions (adapterSetAtom: Transaction -> unit) ->
-                    let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
-
-                    let getLocals () =
-                        $"atomPath={atomPath}  {getLocals ()}"
-
                     match adapterOptions with
                     | Atom.AdapterOptions.Gun (_peers, alias) ->
+                        let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
+                        let getLocals () = $"atomPath={atomPath}  {getLocals ()}"
+
                         let privateKeys = Atom.get getter Selectors.Gun.privateKeys
                         let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (Some alias, atomPath))
 
@@ -386,7 +488,7 @@ module Engine =
                         | Some gunAtomNode, Some privateKeys ->
                             let subscriptionTicks = Guid.newTicksGuid ()
 
-                            let setAdapterValues =
+                            let mountResult =
                                 match storeAtomPath with
                                 | ValueAtomPath (_, _, _, name)
                                 | RootAtomPath (_, name) ->
@@ -394,60 +496,49 @@ module Engine =
                                         (fun () -> $"[ |--| mount ] invoking indexed subscribe. name={name} ")
                                         getLocals
 
-                                    let debouncedAdapterSetAtom =
-                                        Js.debounce
-                                            (fun value ->
-                                                let getLocals () = $"value={value} {getLocals ()}"
-
-                                                addTimestamp
-                                                    (fun () ->
-                                                        "[ ********> mountFn / debouncedAdapterSetAtom ](j3) gun. debounced on subscribe data")
-                                                    getLocals
-
-                                                adapterSetAtom value)
-                                            0
-
-
-                                    Gun.batchSubscribe
-                                        gunAtomNode
-                                        subscriptionTicks
-                                        (fun (subscriptionTicks, gunValue, key) ->
-                                            promise {
-                                                let getLocals () =
-                                                    $"gunValue={gunValue} key={key} {getLocals ()}"
-
-                                                try
-                                                    addTimestamp
-                                                        (fun () ->
-                                                            "[ ||==> Gun.batchSubscribe.on() ](j4-1(1)) will decode. inside gun.on() ")
-                                                        getLocals
-
-                                                    let! newValue = typeMetadata.Decode privateKeys gunValue
-
+                                    let subscription =
+                                        Gun.batchSubscribe
+                                            gunAtomNode
+                                            subscriptionTicks
+                                            (fun (subscriptionTicks, gunValue, key) ->
+                                                promise {
                                                     let getLocals () =
-                                                        $"newValue={newValue} {getLocals ()}"
+                                                        $"gunValue={gunValue} key={key} {getLocals ()}"
 
-                                                    match newValue with
-                                                    | Some (ticks, value) ->
+                                                    try
                                                         addTimestamp
                                                             (fun () ->
-                                                                "[ ||==> Gun.batchSubscribe.on() ](j4-1(2)) invoking debouncedSetAtom. inside gun.on() ")
+                                                                "[ ||==> Gun.batchSubscribe.on() ](j4-1(1)) will decode. inside gun.on() ")
                                                             getLocals
 
-                                                        debouncedAdapterSetAtom (Transaction (NotFromUi, ticks, value))
-                                                    | None ->
-                                                        addTimestamp
+                                                        let! newValue = typeMetadata.Decode privateKeys gunValue
+
+                                                        let getLocals () = $"newValue={newValue} {getLocals ()}"
+
+                                                        match newValue with
+                                                        | Some (ticks, value) ->
+                                                            addTimestamp
+                                                                (fun () ->
+                                                                    "[ ||==> Gun.batchSubscribe.on() ](j4-1(2)) invoking debouncedSetAtom. inside gun.on() ")
+                                                                getLocals
+
+                                                            adapterSetAtom (Transaction (NotFromUi, ticks, value))
+                                                        | None ->
+                                                            addTimestamp
+                                                                (fun () ->
+                                                                    "[ ||==> Gun.batchSubscribe.on() ](j4-1(3)) skipped set from gun ")
+                                                                getLocals
+                                                    with
+                                                    | ex ->
+                                                        Logger.logError
                                                             (fun () ->
-                                                                "[ ||==> Gun.batchSubscribe.on() ](j4-1(3)) skipped set from gun ")
-                                                            getLocals
-                                                with
-                                                | ex ->
-                                                    Logger.logError
-                                                        (fun () ->
-                                                            $"Engine.getAtomAdapter. gun subscribe data error. ex={ex.Message} subscriptionTicks={subscriptionTicks} {getLocals ()}")
+                                                                $"Engine.getAtomAdapter. gun subscribe data error. ex={ex.Message} subscriptionTicks={subscriptionTicks} {getLocals ()}")
 
-                                                    Logger.consoleError [| ex |]
-                                            })
+                                                        Logger.consoleError [| ex |]
+                                                })
+
+                                        newHashedDisposable subscriptionTicks
+
 
                                     let inline setAdapterValue (Transaction (fromUi, lastTicks, lastValue)) =
                                         let getLocals () =
@@ -459,7 +550,7 @@ module Engine =
                                             getLocals
 
                                         if fromUi = FromUi then
-                                            debouncedBatchPutFromUi (
+                                            debouncedGunBatchPutFromUi (
                                                 gunAtomNode,
                                                 privateKeys,
                                                 lastTicks,
@@ -470,129 +561,39 @@ module Engine =
                                                             "[ ||==> setAdapterValue ](j4) invoking debouncedSetAtom. gun inside setAtom passed to debouncedBatchPutFromUi  ")
                                                         getLocals
 
-                                                    debouncedAdapterSetAtom (
-                                                        Transaction (NotFromUi, lastTicks, lastValue)
-                                                    ))
+                                                    adapterSetAtom (Transaction (NotFromUi, lastTicks, lastValue)))
                                             )
 
-                                    Some setAdapterValue
+                                    Some (subscription, setAdapterValue)
                                 | CollectionAtomPath (storeRoot, collection) ->
-                                    addTimestamp
-                                        (fun () -> "[ |--| mount ] invoking collection subscribe  ")
-                                        getLocals
+                                    addTimestamp (fun () -> "[ |--| mount ] invoking collection subscribe  ") getLocals
 
-                                    let mutable lastValue: Set<Gun.AtomKeyFragment> option = None
-
-                                    let inline batchKeys
-                                        (setAtom: Gun.AtomKeyFragment [] -> JS.Promise<unit>)
-                                        data
-                                        kind
-                                        =
-                                        Gun.batchKeys
-                                            atomType
-                                            setAtom
-                                            data
-                                            (fun itemsArray ->
-                                                let newSet = itemsArray |> Seq.collect snd |> Set.ofSeq
-
-                                                let merge =
-                                                    match kind with
-                                                    | BatchKind.Replace -> newSet
-                                                    | BatchKind.Union ->
-                                                        lastValue
-                                                        |> Option.defaultValue Set.empty
-                                                        |> Set.union newSet
-                                                    | BatchKind.Remove ->
-                                                        newSet
-                                                        |> Set.difference (lastValue |> Option.defaultValue Set.empty)
-
-                                                lastValue <- Some merge
-                                                let items = merge |> Set.toArray
-
-
-                                                //                    let newItems =
-                                                //                        itemsArray
-                                                //                        |> Seq.collect snd
-                                                //                        |> Seq.filter (lastSet.Contains >> not)
-                                                //                        |> Seq.toArray
-                                                //
-                                                //                    let items =
-                                                //                        itemsArray
-                                                //                        |> Array.collect snd
-                                                //                        |> Array.append newItems
-                                                //                        |> Array.distinct
-                                                //
-                                                //                    lastValue <- Some (newItems |> Set.ofArray |> Set.union lastSet)
-                                                let getLocals () =
-                                                    $"lastValue={lastValue} items={items} itemsArray={itemsArray} {getLocals ()}"
-
-                                                addTimestamp (fun () -> "[ batchKeys ](y2) ") getLocals
-
-                                                items)
-
-                                    //                                    let batchKeysAtom (fromUi: FromUi, ticks, value) kind =
-                                    //                                        batchKeys adapterSetAtom (fromUi, ticks, value) kind
-
-                                    let inline batchKeysAtom (fromUi, ticks, value) kind =
-                                        batchKeys
-                                            (fun keys ->
+                                    let subscription =
+                                        Gun.batchSubscribe
+                                            (gunAtomNode.map ())
+                                            subscriptionTicks
+                                            (fun (subscriptionTicks, gunValue, rawKey) ->
                                                 promise {
-                                                    keys
-                                                    |> Array.map Array.singleton
-                                                    |> Array.map typeMetadata.OnFormat
-                                                    |> Array.iteri
-                                                        (fun i formattedKey ->
-                                                            let getLocals () =
-                                                                $"fromUi={fromUi} ticks={ticks} subscriptionTicks={subscriptionTicks} i={i} keys={keys} formattedKey={formattedKey} value={value} {getLocals ()}"
+                                                    let getLocals () =
+                                                        $"rawKey={rawKey} gunValue={gunValue} subscriptionTicks={subscriptionTicks} {getLocals ()}"
 
-                                                            match formattedKey with
-                                                            | Some formattedKey ->
-                                                                addTimestamp
-                                                                    (fun () ->
-                                                                        "[ batchKeysAtom ](y2) invoking keys adapterSetAtom (skipping 'adapterSetAtom (Transaction (fromUi, ticks, atomValueRef))' call) ")
-                                                                    getLocals
+                                                    addTimestamp
+                                                        (fun () ->
+                                                            "[ ||==>X Gun.batchSubscribe.on() ](j4-1) inside gun.map().on() ")
+                                                        getLocals
 
-                                                                Atom.change
-                                                                    setter
-                                                                    (collectionKeysFamily (
-                                                                        Some alias,
-                                                                        storeRoot,
-                                                                        collection
-                                                                    ))
-                                                                    (fun oldValue ->
-                                                                        oldValue
-                                                                        |> Map.add formattedKey KeyOperation.Add)
-
-                                                            //                                                                adapterSetAtom (Transaction (fromUi, ticks, atomValueRef))
-                                                            | None ->
-                                                                addTimestamp
-                                                                    (fun () ->
-                                                                        "[ batchKeysAtom ](y2) batchKeysAtom skipped. invalid onformat ")
-                                                                    getLocals)
+                                                    batchKeysAtom
+                                                        setter
+                                                        atomType
+                                                        typeMetadata.OnFormat
+                                                        (match gunValue |> Option.ofObjUnbox with
+                                                         | Some _ -> BatchKind.Union
+                                                         | _ -> BatchKind.Remove)
+                                                        (Some alias, storeRoot, collection)
+                                                        (NotFromUi, Guid.newTicksGuid (), rawKey)
                                                 })
-                                            (ticks, value |> Array.singleton)
-                                            kind
 
-
-                                    Gun.batchSubscribe
-                                        (gunAtomNode.map ())
-                                        subscriptionTicks
-                                        (fun (subscriptionTicks, gunValue, rawKey) ->
-                                            promise {
-                                                let getLocals () =
-                                                    $"rawKey={rawKey} gunValue={gunValue} subscriptionTicks={subscriptionTicks} {getLocals ()}"
-
-                                                addTimestamp
-                                                    (fun () ->
-                                                        "[ ||==>X Gun.batchSubscribe.on() ](j4-1) inside gun.map().on() ")
-                                                    getLocals
-
-                                                batchKeysAtom
-                                                    (NotFromUi, Guid.newTicksGuid (), rawKey)
-                                                    (match gunValue |> Option.ofObjUnbox with
-                                                     | Some _ -> BatchKind.Union
-                                                     | _ -> BatchKind.Remove)
-                                            })
+                                        newHashedDisposable subscriptionTicks
 
                                     let inline setAdapterValue
                                         (Transaction (fromUi, lastTicks, AtomValueRef lastValue))
@@ -600,16 +601,20 @@ module Engine =
                                         let getLocals () =
                                             $"fromUi={fromUi} lastTicks={lastTicks} lastValue={lastValue} {getLocals ()}"
 
-                                        batchKeysAtom
-                                            (NotFromUi, Guid.newTicksGuid (), Gun.AtomKeyFragment (string lastValue))
-                                            BatchKind.Union
-
                                         addTimestamp
                                             (fun () ->
                                                 "[ ||==> collection setAdapterValue ](j4-2) calling batchKeysAtom  ")
                                             getLocals
 
-                                    Some setAdapterValue
+                                        batchKeysAtom
+                                            setter
+                                            atomType
+                                            typeMetadata.OnFormat
+                                            BatchKind.Union
+                                            (Some alias, storeRoot, collection)
+                                            (NotFromUi, Guid.newTicksGuid (), Gun.AtomKeyFragment (string lastValue))
+
+                                    Some (subscription, setAdapterValue)
                                 | _ ->
                                     addTimestamp (fun () -> "[ mountFn ](j2-2) invalid atom path ") getLocals
                                     None
@@ -617,10 +622,10 @@ module Engine =
 
                             addTimestamp (fun () -> "[ ||||||||| mountFn ](j2) gun. will batch subscribe") getLocals
 
-                            match setAdapterValues with
-                            | Some setAdapterValues ->
+                            match mountResult with
+                            | Some (subscription, setAdapterValues) ->
                                 let subscriptionId = SubscriptionId subscriptionTicks
-                                Some (subscriptionId, setAdapterValues)
+                                Some (subscriptionId, subscription, setAdapterValues)
                             | None -> None
 
                         | _ -> failwith $"invalid gun atom node {getLocals ()}"
@@ -628,8 +633,7 @@ module Engine =
                 (fun storeAtomPath getter (_setter: Setter<obj>) adapterOptions ->
                     let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
 
-                    let getLocals () =
-                        $"atomPath={atomPath} {getLocals ()}"
+                    let getLocals () = $"atomPath={atomPath} {getLocals ()}"
 
                     match adapterOptions with
                     | Atom.AdapterOptions.Gun (_peers, alias) ->
@@ -648,27 +652,231 @@ module Engine =
                         let getLocals () =
                             $"adapterOptions={adapterOptions} {getLocals ()}"
 
-                        addTimestamp
-                            (fun () -> "[ <==== unmountFn ](j5) gun unmount (# skipped, gun bug? ) ")
-                            getLocals
+                        addTimestamp (fun () -> "[ <==== unmountFn ](j5) gun unmount (# skipped, gun bug? ) ") getLocals
 
                     | _ -> ())
             | Atom.AdapterType.Hub ->
-                (fun _storeAtomPath _getter _setter adapterOptions _setValue ->
+                (fun storeAtomPath getter setter adapterOptions adapterSetAtom ->
                     match adapterOptions with
-                    | Atom.AdapterOptions.Hub (_alias, _hubUrl) ->
-                        //                let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
-                        Profiling.addTimestamp (fun () -> $"+09B ====> getAtomAdapter hub mount  {getLocals ()}  ")
+                    | Atom.AdapterOptions.Hub (alias, _hubUrl) ->
+                        let hub = Atom.get getter Selectors.Hub.hub
+                        let privateKeys = Atom.get getter Selectors.Gun.privateKeys
 
-                        let subscriptionTicks = Guid.newTicksGuid ()
-                        let subscriptionId = SubscriptionId subscriptionTicks
+                        match hub, privateKeys with
+                        | Some hub, Some privateKeys ->
+                            let atomPath =
+                                storeAtomPath
+                                |> StoreAtomPath.AtomPath
+                                |> AtomPath.Value
 
-                        Some (
-                            subscriptionId,
-                            (fun (Transaction (_fromUi, _lastTicks, _lastValue)) ->
-                                Profiling.addTimestamp
-                                    (fun () -> $"+09-1B ====> getAtomAdapter hub setAdapterValue  {getLocals ()}  "))
-                        )
+                            let getLocals () =
+                                $" alias={alias} _hubUrl={_hubUrl} adapterOptions={adapterOptions} atomPath={atomPath} {getLocals ()}"
+
+                            addTimestamp (fun () -> $"+09B ====> getAtomAdapter hub mount  {getLocals ()}") getLocals
+
+                            let mountResult =
+                                match storeAtomPath with
+                                | ValueAtomPath (_, _, _, name)
+                                | RootAtomPath (_, name) ->
+                                    addTimestamp
+                                        (fun () -> $"[ |--| mount ] invoking indexed subscribe. name={name} ")
+                                        getLocals
+
+                                    let subscription =
+                                        promise {
+                                            let! subscription =
+                                                Gun.hubSubscribe
+                                                    hub
+                                                    (Sync.Request.Get (alias, atomPath))
+                                                    (fun (msg: Sync.Response) ->
+                                                        promise {
+                                                            Logger.logTrace
+                                                                (fun () ->
+                                                                    $"Store.syncSubscribe. wrapper.next() HUB stream subscribe] msg={msg} {getLocals ()} ")
+
+                                                            match msg with
+                                                            | Sync.Response.GetResult result ->
+                                                                Logger.logTrace
+                                                                    (fun () ->
+                                                                        $"Store.syncSubscribe. Sync.Response.GetResult  atomPath={atomPath} {getLocals ()} ")
+
+                                                                let! newValue =
+                                                                    match result |> Option.defaultValue null with
+                                                                    | null -> unbox null |> Promise.lift
+                                                                    | result ->
+                                                                        typeMetadata.Decode
+                                                                            privateKeys
+                                                                            (Gun.EncryptedSignedValue result)
+
+                                                                let getLocals () = $"newValue={newValue} {getLocals ()}"
+
+                                                                match newValue with
+                                                                | Some (ticks, value) ->
+                                                                    addTimestamp
+                                                                        (fun () ->
+                                                                            "[ ||==> Hub.batchSubscribe.on() ](j4-1(2)) invoking debouncedAdapterSetAtom. inside hub.on() ")
+                                                                        getLocals
+
+                                                                    adapterSetAtom (
+                                                                        Transaction (NotFromUi, ticks, value)
+                                                                    )
+                                                                | None ->
+                                                                    addTimestamp
+                                                                        (fun () ->
+                                                                            "[ ||==> Hub.batchSubscribe.on() ](j4-1(3)) skipped set from hub ")
+                                                                        getLocals
+                                                            | _ -> ()
+                                                        }
+                                                        |> Promise.start)
+                                                    (fun ex ->
+                                                        Logger.logError
+                                                            (fun () ->
+                                                                $"Store.syncSubscribe. onError... ex={ex} {getLocals ()} "))
+
+                                            let getLocals () =
+                                                $"subscription={subscription} {getLocals ()}"
+
+                                            addTimestamp (fun () -> "[ Hub.subscribe.on() ] ") getLocals
+                                            return subscription
+                                        }
+
+                                    let inline setAdapterValue (Transaction (fromUi, lastTicks, lastValue)) =
+                                        promise {
+                                            let getLocals () =
+                                                $"fromUi={fromUi} lastTicks={lastTicks} lastValue={lastValue} {getLocals ()}"
+
+                                            addTimestamp
+                                                (fun () ->
+                                                    "[ ||==> setAdapterValue ](j4-2) HUB invoking debouncedBatchPutFromUi  ")
+                                                getLocals
+
+                                            if fromUi = FromUi then
+                                                try
+                                                    let! newValueJson =
+                                                        promise {
+                                                            if lastValue |> Js.ofNonEmptyObj |> Option.isNone then
+                                                                return null
+                                                            else
+                                                                let! (Gun.EncryptedSignedValue encrypted) =
+                                                                    typeMetadata.Encode
+                                                                        privateKeys
+                                                                        (lastTicks, lastValue)
+
+                                                                return encrypted
+                                                        }
+
+                                                    let! response =
+                                                        hub.invokeAsPromise (
+                                                            Sync.Request.Set (alias, atomPath, newValueJson)
+                                                        )
+
+                                                    match response with
+                                                    | Sync.Response.SetResult result ->
+
+                                                        let getLocals () = $"result={result} {getLocals ()}"
+
+                                                        addTimestamp
+                                                            (fun () ->
+                                                                "[ ||==> setAdapterValue ](j4-2) HUB . inside setAdapterValue  ")
+                                                            getLocals
+
+                                                        if result then
+                                                            adapterSetAtom (
+                                                                Transaction (NotFromUi, lastTicks, lastValue)
+                                                            )
+                                                    | response ->
+                                                        Logger.logError
+                                                            (fun () -> $"Store.putFromUi. #90592 response={response}")
+                                                with
+                                                | ex ->
+                                                    Logger.logError
+                                                        (fun () -> $"Store.putFromUi. hub.set, error={ex.Message}")
+                                        }
+                                        |> Promise.start
+
+                                    Some (subscription, setAdapterValue)
+                                | CollectionAtomPath (storeRoot, collection) as storeAtomPath ->
+                                    addTimestamp (fun () -> "[ |--| mount ] invoking collection subscribe  ") getLocals
+
+                                    let atomPath =
+                                        storeAtomPath
+                                        |> StoreAtomPath.AtomPath
+                                        |> AtomPath.Value
+
+                                    let getLocals () = $"atomPath={atomPath}  {getLocals ()}"
+
+                                    let subscription =
+                                        Gun.hubSubscribe
+                                            hub
+                                            (Sync.Request.Filter (
+                                                alias,
+                                                storeRoot |> StoreRoot.Value,
+                                                collection |> Collection.Value
+                                            ))
+                                            (fun (response: Sync.Response) ->
+                                                let getLocals () = $"response={response}  {getLocals ()}"
+
+                                                addTimestamp
+                                                    (fun () ->
+                                                        "[ ||==>X Hub.batchSubscribe.on() ](j4-1) inside hub.map().on() ")
+                                                    getLocals
+
+                                                match response with
+                                                | Sync.Response.FilterResult keys ->
+                                                    keys
+                                                    |> Array.iter
+                                                        (fun key ->
+                                                            batchKeysAtom
+                                                                setter
+                                                                atomType
+                                                                typeMetadata.OnFormat
+                                                                BatchKind.Union
+                                                                (Some (Gun.Alias alias), storeRoot, collection)
+                                                                (NotFromUi,
+                                                                 Guid.newTicksGuid (),
+                                                                 Gun.AtomKeyFragment key))
+                                                | response ->
+                                                    Logger.logError
+                                                        (fun () ->
+                                                            $"Store.selectAtomSyncKeys Gun.batchHubSubscribe invalid response={response}"))
+                                            (fun ex ->
+                                                let getLocals () = $"ex={ex} {getLocals ()}"
+
+                                                Logger.logError (fun () -> $"hub.map().on() error {getLocals ()}"))
+
+                                    let inline setAdapterValue
+                                        (Transaction (fromUi, lastTicks, AtomValueRef lastValue))
+                                        =
+                                        let getLocals () =
+                                            $"fromUi={fromUi} lastTicks={lastTicks} lastValue={lastValue} {getLocals ()}"
+
+                                        addTimestamp
+                                            (fun () ->
+                                                "[ ||==> collection setAdapterValue ](j4-2) calling batchKeysAtom  ")
+                                            getLocals
+
+                                        batchKeysAtom
+                                            setter
+                                            atomType
+                                            typeMetadata.OnFormat
+                                            BatchKind.Union
+                                            (Some (Gun.Alias alias), storeRoot, collection)
+                                            (NotFromUi, Guid.newTicksGuid (), Gun.AtomKeyFragment (string lastValue))
+
+                                    Some (subscription, setAdapterValue)
+                                | _ ->
+                                    addTimestamp (fun () -> "[ mountFn ](j2-2) invalid atom path ") getLocals
+                                    None
+
+                            addTimestamp (fun () -> "[ ||||||||| mountFn ](j2) hub. will batch subscribe") getLocals
+
+                            match mountResult with
+                            | Some (subscription, setAdapterValues) ->
+                                let subscriptionTicks = Guid.newTicksGuid ()
+                                let subscriptionId = SubscriptionId subscriptionTicks
+                                Some (subscriptionId, subscription, setAdapterValues)
+                            | None -> None
+                        | _ -> None
                     | _ -> None),
                 (fun _storeAtomPath _getter _setter adapterOptions ->
                     match adapterOptions with
@@ -691,9 +899,11 @@ module Engine =
 
                         let subscriptionTicks = Guid.newTicksGuid ()
                         let subscriptionId = SubscriptionId subscriptionTicks
+                        let subscription = newHashedDisposable subscriptionTicks
 
                         Some (
                             subscriptionId,
+                            subscription,
                             (fun (Transaction (_fromUi, _lastTicks, _lastValue)) ->
                                 let getLocals () =
                                     $"_lastTicks={_lastTicks} _lastValue={_lastValue} {getLocals ()}"
@@ -720,7 +930,7 @@ module Engine =
 
     type AtomId = AtomId of adapterType: Atom.AdapterType * alias: Gun.Alias * storeAtomPath: StoreAtomPath
 
-    let gunSubscriptionMap = Dictionary<AtomId, (SubscriptionId * (Transaction -> unit)) option> ()
+    let gunSubscriptionMap = Dictionary<AtomId, (SubscriptionId * IDisposable * (Transaction -> unit)) option> ()
     //    let collectionSubscriptionMap = Dictionary<StoreRoot * Collection, unit -> unit> ()
 
 
@@ -730,7 +940,7 @@ module Engine =
                     -> (AtomConfig<obj> -> obj -> unit)
                     -> Atom.AdapterOptions
                     -> (Transaction -> unit)
-                    -> (SubscriptionId * (Transaction -> unit)) option)
+                    -> (SubscriptionId * JS.Promise<IDisposable> * (Transaction -> unit)) option)
         (unmount: Getter<obj> -> (AtomConfig<obj> -> obj -> unit) -> Atom.AdapterOptions -> unit)
         : AtomConfig<Transaction option> =
         let atom = Atom.Primitives.create (AtomType.Atom None)
@@ -778,9 +988,7 @@ module Engine =
                                 // gunPut
                                 setAdapterValue (Transaction (newFromUi, newTicks, newValue))
                             | _ ->
-                                addTimestamp
-                                    (fun () -> "[ wrapper.set() ](f3-1) skipping new adapter assign")
-                                    getLocals
+                                addTimestamp (fun () -> "[ wrapper.set() ](f3-1) skipping new adapter assign") getLocals
 
                             Some (Transaction (newFromUi, newTicks, newValue)))
                 | None -> failwith $"invalid newValue {getLocals ()}")
@@ -806,32 +1014,44 @@ module Engine =
                     addTimestamp (fun () -> "[ @@> mount ](f6)") getLocals
 
                     if setAdapterValue.IsNone then
-                        let mountResult =
-                            mount
-                                getter
-                                setter
-                                adapterOptions
-                                (fun (Transaction (fromUi, ticksGuid, value)) ->
+                        let adapterSetAtom (Transaction (fromUi, ticksGuid, value)) =
+                            let getLocals () =
+                                $"fromUi={fromUi} ticksGuid={ticksGuid} value={value} {getLocals ()}"
 
-                                    let getLocals () =
-                                        $"fromUi={fromUi} ticksGuid={ticksGuid} value={value} {getLocals ()}"
+                            addTimestamp
+                                (fun () -> "[ setAdapterValue / setAtom ](f6+1) after debounced put?")
+                                getLocals
+
+                            if setAdapterValue.IsNone then
+                                addTimestamp
+                                    (fun () ->
+                                        "[ setAdapterValue / setAtom ](f6+2) skipping assign from adapter. unmounted ")
+                                    getLocals
+                            else
+                                setAtom (Some (Transaction (fromUi, ticksGuid, value)))
+
+                        let debouncedAdapterSetAtom =
+                            Js.debounce
+                                (fun value ->
+                                    let getLocals () = $"value={value} {getLocals ()}"
 
                                     addTimestamp
-                                        (fun () -> "[ setAdapterValue / setAtom ](f6+1) after debounced put?")
+                                        (fun () ->
+                                            "[ ********> mountFn / debouncedAdapterSetAtom ](j3) gun. debounced on subscribe data")
                                         getLocals
 
-                                    if setAdapterValue.IsNone then
-                                        addTimestamp
-                                            (fun () ->
-                                                "[ setAdapterValue / setAtom ](f6+2) skipping assign from adapter. unmounted ")
-                                            getLocals
-                                    else
-                                        setAtom (Some (Transaction (fromUi, ticksGuid, value))))
+                                    adapterSetAtom value)
+                                0
+
+
+                        let mountResult = mount getter setter adapterOptions debouncedAdapterSetAtom
 
                         match mountResult with
-                        | Some (subscriptionId, setAdapterValues) ->
+                        | Some (subscriptionId, subscription, setAdapterValues) ->
                             setAdapterValue <- Some setAdapterValues
-                            gunSubscriptionMap.Add (atomId, Some (subscriptionId, setAdapterValues))
+
+                            let! subscription = subscription
+                            gunSubscriptionMap.Add (atomId, Some (subscriptionId, subscription, setAdapterValues))
                         | _ ->
                             gunSubscriptionMap.Remove atomId |> ignore
                             setAdapterValue <- None
@@ -880,12 +1100,11 @@ module Engine =
                     let mount, unmount = getAdapterSubscription atomType adapterType
 
                     let adapterAtom =
-                        match adapterAtomMap.TryGetValue atomId with
-                        | true, value ->
+                        match adapterAtomMap |> Map.tryFindDictionary atomId with
+                        | Some value ->
                             addTimestamp (fun () -> "[ getAdapterValues ](a4) returning cached adapter") getLocals
-
                             value
-                        | _ ->
+                        | None ->
                             let mount, unmount = mount storeAtomPath, unmount storeAtomPath
                             let newAtom = createAtomWithAdapter atomId mount unmount
 
@@ -922,8 +1141,7 @@ module Engine =
             $"atomType={atomType} atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.subscribeCollection {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.subscribeCollection {fn ()} | {getLocals ()}")
 
         if typeMetadataMap.ContainsKey atomType |> not then
             collectionTypeMap.[(storeRoot, collection)] <- collectionAtomType
@@ -1067,8 +1285,7 @@ module Engine =
             $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} defaultGroup={defaultGroup} defaultValue={defaultValue} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.createAtomWithGroup {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.createAtomWithGroup {fn ()} | {getLocals ()}")
 
         addTimestamp (fun () -> "[ constructor ](d1)") getLocals
 
@@ -1199,8 +1416,7 @@ module Engine =
                             adapterType, fromUi, ticksGuid, value)
                 )
 
-            let getLocals () =
-                $"  {getLocals ()} values={valuesfmt}"
+            let getLocals () = $"  {getLocals ()} values={valuesfmt}"
 
             let _lastAdapterSetAtom, lastAdapterType, lastFromUi, lastTicks, lastValue = newValues.Head
             //                | _ -> ()
@@ -1280,8 +1496,7 @@ module Engine =
                             (fun (adapterType, Transaction (ticksGuid, fromUi, value)) ->
                                 adapterType, (fromUi, (ticksGuid, value |> unbox<'A8>)))
 
-                    let getLocals () =
-                        $"newValue={newValue} {getLocals ()}"
+                    let getLocals () = $"newValue={newValue} {getLocals ()}"
 
                     addTimestamp (fun () -> "[ <((A))> wrapper.set() ](a6)") getLocals
                     newValue)
@@ -1324,8 +1539,7 @@ module Engine =
                 (fun getter setter (newValue: 'A8) ->
                     //                    refreshAdapterValues getter
 
-                    let getLocals () =
-                        $"newValue={newValue} {getLocals ()}"
+                    let getLocals () = $"newValue={newValue} {getLocals ()}"
 
                     addTimestamp (fun () -> "[ <&¨¨&> wrapper.set() ](a6)") getLocals
 
@@ -1443,8 +1657,7 @@ module Engine =
 
                     value1)
             (fun _get setter newValue ->
-                let getLocals () =
-                    $"newValue={newValue} {getLocals ()}"
+                let getLocals () = $"newValue={newValue} {getLocals ()}"
 
                 if lastValue.IsNone
                    || lastValue |> Object.compare (Some newValue) |> not then

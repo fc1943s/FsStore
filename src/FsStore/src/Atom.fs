@@ -119,20 +119,16 @@ module Atom =
         | AtomReference.Atom atom -> atomIdMap.ContainsKey (AtomInternalKey (atom.ToString ()))
         | AtomReference.Path path -> atomPathMap.ContainsKey path
 
-
     let rec query atomReference =
         let result =
             match atomReference with
             | AtomReference.Atom atom ->
                 let internalKey = AtomInternalKey (atom.ToString ())
-
-                match atomIdMap.TryGetValue internalKey with
-                | true, value -> Some value
-                | _ -> None
+                atomIdMap |> Map.tryFindDictionary internalKey
             | AtomReference.Path path ->
-                match atomPathMap.TryGetValue path with
-                | true, atom -> Some (query (AtomReference.Atom (atom |> unbox<AtomConfig<'A>>)))
-                | _ -> None
+                atomPathMap
+                |> Map.tryFindDictionary path
+                |> Option.map (fun atom -> query (AtomReference.Atom (atom |> unbox<AtomConfig<'A>>)))
 
         let getLocals () =
             $"atomReference={atomReference} result={result}"
@@ -244,8 +240,7 @@ module Atom =
                     addTimestamp (fun () -> "[ read() ]") getLocals
                     result)
                 (fun getter setter newValue ->
-                    let getLocals () =
-                        $"newValue={newValue} {getLocals ()}"
+                    let getLocals () = $"newValue={newValue} {getLocals ()}"
 
                     addTimestamp (fun () -> "[ write() ]") getLocals
                     write getter setter newValue)
@@ -284,8 +279,7 @@ module Atom =
                 promise {
                     do! write getter setter newValue
 
-                    let getLocals () =
-                        $"newValue={newValue} {getLocals ()}"
+                    let getLocals () = $"newValue={newValue} {getLocals ()}"
 
                     addTimestamp (fun () -> "[ write() ]") getLocals
                 })

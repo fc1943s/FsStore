@@ -10,7 +10,7 @@ module AtomWithSync =
     module Store =
         //        let inline atomWithReducer<'TKey, 'TValue> atomkey (defaultValue: 'TValue) = ()
 
-        let inline atomWithSync<'TKey, 'TValue  when 'TValue: equality> storeAtomPath (defaultValue: 'TValue) =
+        let inline atomWithSync<'TKey, 'TValue when 'TValue: equality> storeAtomPath (defaultValue: 'TValue) =
 
             let referenceAtom = Atom.Primitives.atom defaultValue
 
@@ -19,20 +19,15 @@ module AtomWithSync =
                     storeAtomPath
                     defaultValue
                     (fun () ->
-                        promise {
-                        Profiling.addTimestamp (fun () -> $"@ atomWithSync subscribe {storeAtomPath}")
-                        }
-                        )
-                    (fun () ->
-                        Profiling.addTimestamp (fun () -> $"@ atomWithSync unsubscribe {storeAtomPath}")
-                        )
+                        promise { Profiling.addTimestamp (fun () -> $"@ atomWithSync subscribe {storeAtomPath}") })
+                    (fun () -> Profiling.addTimestamp (fun () -> $"@ atomWithSync unsubscribe {storeAtomPath}"))
                     referenceAtom
 
             atomWithSubscription
         //
 
 
-//            let mutable lastUserAtomId = None
+        //            let mutable lastUserAtomId = None
 //
 //            let syncEngine = Store.SyncEngine (defaultValue, None)
 //            let syncState = SyncState<'TValue> ()
@@ -364,5 +359,8 @@ module AtomWithSync =
 //
 //            wrapper
 
-        let inline atomFamilyWithSync<'TKey, 'TValue  when 'TValue: equality> storeAtomPath (defaultValueFn: 'TKey -> 'TValue) =
+        let inline atomFamilyWithSync<'TKey, 'TValue when 'TValue: equality>
+            storeAtomPath
+            (defaultValueFn: 'TKey -> 'TValue)
+            =
             Atom.Primitives.atomFamily (fun param -> atomWithSync<'TKey, 'TValue> storeAtomPath (defaultValueFn param))

@@ -28,15 +28,6 @@ module BaseStore =
             | _match :: root :: guid :: _key -> Some (root, guid)
             | _ -> None
 
-        let inline newHashedDisposable (ticks: TicksGuid) =
-            promise {
-                Logger.logDebug (fun () -> $"BaseStore.newHashedDisposable constructor ticks={ticks}")
-
-                return
-                    Object.newDisposable
-                        (fun () ->
-                            Logger.logDebug (fun () -> $"BaseStore.newHashedDisposable disposing... ticks={ticks}"))
-            }
 
 
 

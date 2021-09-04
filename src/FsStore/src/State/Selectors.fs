@@ -3,6 +3,7 @@ namespace FsStore.State
 open Fable.Core.JsInterop
 open System.Collections.Generic
 open Fable.Core
+open FsBeacon.Shared
 open FsCore
 open FsCore.BaseModel
 open FsStore.Bindings.Gun
@@ -345,16 +346,17 @@ module SelectorsMagic =
                                                 match msg with
                                                 | Sync.Response.FilterStream ((alias, storeRoot, collection), keys) ->
                                                     match
-                                                        hubSubscriptionMap.TryGetValue
+                                                        hubSubscriptionMap
+                                                        |> Map.tryFindDictionary
                                                             ((Alias alias, StoreRoot storeRoot, Collection collection))
                                                         with
-                                                    | true, fn ->
+                                                    | Some fn ->
                                                         Logger.logDebug
                                                             (fun () ->
                                                                 $"Selectors.Hub.hubConnection. Selectors.hub onMsg msg={msg}. triggering ")
 
                                                         fn keys
-                                                    | _ ->
+                                                    | None ->
                                                         Logger.logDebug
                                                             (fun () ->
                                                                 $"Selectors.Hub.hubConnection. onMsg msg={msg}. skipping. not in map ")

@@ -1,10 +1,11 @@
 namespace FsStore.Store
 
 open Fable.Core.JsInterop
+open FsBeacon.Shared
+open FsStore
 open FsStore.Atom
 open FsStore.BaseStore.Store
 open FsStore.Model
-open FsStore.State
 open FsStore.Store.SyncEngine.Store
 open Microsoft.FSharp.Core.Operators
 open FsCore
@@ -157,5 +158,5 @@ module PutFromUi =
 
                 syncState.SyncPaused <- false
 
-                return! newHashedDisposable ticks
+                return! Engine.newHashedDisposable ticks
             }
