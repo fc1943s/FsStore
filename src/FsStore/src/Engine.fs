@@ -346,6 +346,7 @@ module Engine =
     type BatchKind =
         | Replace
         | Union
+        | Remove
 
     type Transaction = Transaction of fromUi: FromUi * ticks: TicksGuid * value: AtomValueRef
 
@@ -501,6 +502,9 @@ module Engine =
                                                         lastValue
                                                         |> Option.defaultValue Set.empty
                                                         |> Set.union newSet
+                                                    | BatchKind.Remove ->
+                                                        newSet
+                                                        |> Set.difference (lastValue |> Option.defaultValue Set.empty)
 
                                                 lastValue <- Some merge
                                                 let items = merge |> Set.toArray
@@ -583,12 +587,11 @@ module Engine =
                                                         "[ ||==>X Gun.batchSubscribe.on() ](j4-1) inside gun.map().on() ")
                                                     getDebugInfo
 
-                                                match gunValue |> Option.ofObjUnbox with
-                                                | Some _ ->
-                                                    batchKeysAtom
-                                                        (NotFromUi, Guid.newTicksGuid (), rawKey)
-                                                        BatchKind.Union
-                                                | _ -> eprintfn $"invalid gun.map().on() {getDebugInfo ()}"
+                                                batchKeysAtom
+                                                    (NotFromUi, Guid.newTicksGuid (), rawKey)
+                                                    (match gunValue |> Option.ofObjUnbox with
+                                                     | Some _ -> BatchKind.Union
+                                                     | _ -> BatchKind.Remove)
                                             })
 
                                     let inline setAdapterValue
