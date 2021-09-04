@@ -1485,10 +1485,16 @@ module Engine =
             let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
             let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
 
+            let getLocals () = ""
+
+            let getLocals () =
+                $"alias={alias} atomPath={atomPath} {getLocals ()}"
+
             match gunAtomNode with
             | Some gunAtomNode ->
                 let! putResult = Gun.put gunAtomNode (unbox null)
-                Logger.logDebug (fun () -> $"Engine.delete. putResult={putResult}")
+                let getLocals () = $"putResult={putResult} {getLocals ()}"
+                Logger.logDebug (fun () -> $"Engine.delete. {getLocals ()}")
             | None -> failwith "Engine.delete. invalid gun atom node"
 
             match alias with

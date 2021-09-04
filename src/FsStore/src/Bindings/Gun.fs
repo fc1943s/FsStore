@@ -336,12 +336,8 @@ module Gun =
                             res true
                         else
 
-                            match Dom.window () with
-                            | Some window ->
-                                if window?Cypress = null then
-                                    Logger.logError
-                                        (fun () -> $"Gun.put error. newValue={newValue} ack={JS.JSON.stringify ack} ")
-                            | None -> ()
+                            Logger.logError
+                                (fun () -> $"Gun.put error. newValue={newValue} ack={JS.JSON.stringify ack} ")
 
                             res false)
                 |> ignore)
