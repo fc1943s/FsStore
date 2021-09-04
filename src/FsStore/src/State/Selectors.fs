@@ -130,7 +130,6 @@ module SelectorsMagic =
                 readSelector
                     (nameof gun)
                     (fun getter ->
-                        let logger = Atom.get getter logger
                         //                    let deviceInfo = Atom.value getter deviceInfo
                         let gunPeers = Atom.get getter gunPeers
 
@@ -152,7 +151,7 @@ module SelectorsMagic =
                                     GunProps.multicast = None
                                 }
 
-                        logger.Debug (fun () -> $"Selectors.Gun.gun. gunPeers={gunPeers}. gun={gun} returning...")
+                        Logger.logDebug (fun () -> $"Selectors.Gun.gun. gunPeers={gunPeers}. gun={gun} returning...")
 
                         gun)
 
@@ -297,13 +296,12 @@ module SelectorsMagic =
                 readSelector
                     (nameof hubConnection)
                     (fun getter ->
-                        let logger = Atom.get getter logger
                         let timeout = 2000
 
                         let hubUrl = Atom.get getter Atoms.hubUrl
                         let alias = Atom.get getter Gun.alias
 
-                        logger.Debug (fun () -> $"Selectors.Hub.hubConnection. start. alias={alias} hubUrl={hubUrl}")
+                        Logger.logDebug (fun () -> $"Selectors.Hub.hubConnection. start. alias={alias} hubUrl={hubUrl}")
 
                         match alias, hubUrl with
                         | Some _, Some (String.Valid hubUrl) ->
@@ -317,7 +315,7 @@ module SelectorsMagic =
                                                 {
                                                     nextRetryDelayInMilliseconds =
                                                         fun _context ->
-                                                            logger.Debug
+                                                            Logger.logDebug
                                                                 (fun () ->
                                                                     "Selectors.Hub.hubConnection. SignalR.connect(). withAutomaticReconnect")
 
@@ -325,42 +323,42 @@ module SelectorsMagic =
                                                 }
                                             )
                                             .onReconnecting(fun ex ->
-                                                logger.Debug
+                                                Logger.logDebug
                                                     (fun () ->
                                                         $"Selectors.Hub.hubConnection. SignalR.connect(). onReconnecting ex={ex}"))
                                             .onReconnected(fun ex ->
-                                                logger.Debug
+                                                Logger.logDebug
                                                     (fun () ->
                                                         $"Selectors.Hub.hubConnection. SignalR.connect(). onReconnected ex={ex}"))
                                             .onClose(fun ex ->
-                                                logger.Debug
+                                                Logger.logDebug
                                                     (fun () ->
                                                         $"Selectors.Hub.hubConnection. SignalR.connect(). onClose ex={ex}"))
                                             .configureLogging(LogLevel.Debug)
                                             .onMessage (fun msg ->
                                                 match msg with
                                                 | Sync.Response.ConnectResult ->
-                                                    logger.Debug
+                                                    Logger.logDebug
                                                         (fun () ->
                                                             "Selectors.Hub.hubConnection. Sync.Response.ConnectResult")
                                                 | Sync.Response.SetResult result ->
-                                                    logger.Debug
+                                                    Logger.logDebug
                                                         (fun () ->
                                                             $"Selectors.Hub.hubConnection. Sync.Response.SetResult result={result}")
                                                 | Sync.Response.GetResult value ->
-                                                    logger.Debug
+                                                    Logger.logDebug
                                                         (fun () ->
                                                             $"Selectors.Hub.hubConnection. Sync.Response.GetResult value={value}")
                                                 | Sync.Response.GetStream (key, value) ->
-                                                    logger.Debug
+                                                    Logger.logDebug
                                                         (fun () ->
                                                             $"Selectors.Hub.hubConnection. Sync.Response.GetStream key={key} value={value}")
                                                 | Sync.Response.FilterResult keys ->
-                                                    logger.Debug
+                                                    Logger.logDebug
                                                         (fun () ->
                                                             $"Selectors.Hub.hubConnection. Sync.Response.FilterResult keys={keys}")
                                                 | Sync.Response.FilterStream (key, keys) ->
-                                                    logger.Debug
+                                                    Logger.logDebug
                                                         (fun () ->
                                                             $"Selectors.Hub.hubConnection. Sync.Response.FilterStream key={key} keys={keys}")
 
@@ -371,21 +369,21 @@ module SelectorsMagic =
                                                             ((Alias alias, StoreRoot storeRoot, Collection collection))
                                                         with
                                                     | true, fn ->
-                                                        logger.Debug
+                                                        Logger.logDebug
                                                             (fun () ->
                                                                 $"Selectors.Hub.hubConnection. Selectors.hub onMsg msg={msg}. triggering ")
 
                                                         fn keys
                                                     | _ ->
-                                                        logger.Debug
+                                                        Logger.logDebug
                                                             (fun () ->
                                                                 $"Selectors.Hub.hubConnection. onMsg msg={msg}. skipping. not in map ")
                                                 | _ ->
-                                                    logger.Debug
+                                                    Logger.logDebug
                                                         (fun () ->
                                                             $"Selectors.Hub.hubConnection.  onMsg msg={msg}. skipping. not handled ")))
 
-                            logger.Debug
+                            Logger.logDebug
                                 (fun () ->
                                     $"Selectors.Hub.hubConnection. end. alias={alias} hubUrl={hubUrl}. starting connection...")
 
