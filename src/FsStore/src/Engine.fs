@@ -9,6 +9,7 @@ open FsCore.BaseModel
 open FsJs
 open FsStore.Bindings
 open FsStore.Bindings.Batcher
+open FsStore.Bindings.Gun
 open FsStore.Model
 open FsCore
 open FsStore.State
@@ -264,13 +265,11 @@ module Engine =
 
     let typeMetadataMap =
         Dictionary<DataType * Type, {| DefaultValue: AtomValueRef
-                                       Decode: Gun.GunKeys
-                                           -> Gun.EncryptedSignedValue
+                                       Decode: GunKeys
+                                           -> EncryptedSignedValue
                                            -> JS.Promise<(TicksGuid * AtomValueRef) option>
-                                       Encode: Gun.GunKeys
-                                           -> TicksGuid * AtomValueRef
-                                           -> JS.Promise<Gun.EncryptedSignedValue>
-                                       OnFormat: Gun.AtomKeyFragment [] -> KeyRef option |}>
+                                       Encode: GunKeys -> TicksGuid * AtomValueRef -> JS.Promise<EncryptedSignedValue>
+                                       OnFormat: AtomKeyFragment [] -> KeyRef option |}>
             ()
 
     let collectionTypeMap = Dictionary<StoreRoot * Collection, Type> ()
@@ -295,16 +294,14 @@ module Engine =
                                 if newValue |> Js.ofNonEmptyObj |> Option.isNone then
                                     return null
                                 else
-                                    let! (Gun.EncryptedSignedValue encrypted) =
+                                    let! (EncryptedSignedValue encrypted) =
                                         typeMetadata.Encode privateKeys (ticks, newValue)
 
                                     return encrypted
                             }
 
                         let! putResult =
-                            Gun.put
-                                gunAtomNode
-                                (Gun.GunValue.EncryptedSignedValue (Gun.EncryptedSignedValue newValueJson))
+                            put gunAtomNode (GunValue.EncryptedSignedValue (EncryptedSignedValue newValueJson))
 
                         let getLocals () = $"putResult={putResult} {getLocals ()}"
 
@@ -347,9 +344,9 @@ module Engine =
     type Transaction = Transaction of fromUi: FromUi * ticks: TicksGuid * value: AtomValueRef
 
 
-    let lastCollectionValueMap = Dictionary<StoreAtomPath, Set<Gun.AtomKeyFragment>> ()
+    let lastCollectionValueMap = Dictionary<StoreAtomPath, Set<AtomKeyFragment>> ()
 
-    let inline batchKeys storeAtomPath atomType kind data (setAtom: Gun.AtomKeyFragment [] -> JS.Promise<unit>) =
+    let inline batchKeys storeAtomPath atomType kind data (setAtom: AtomKeyFragment [] -> JS.Promise<unit>) =
 
         let getLocals () =
             $"atomType={atomType} atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
@@ -359,7 +356,7 @@ module Engine =
 
         addTimestamp (fun () -> "[ body ]") getLocals
 
-        Gun.batchKeys
+        batchKeys
             atomType
             setAtom
             data
@@ -497,7 +494,7 @@ module Engine =
                                         getLocals
 
                                     let subscription =
-                                        Gun.batchSubscribe
+                                        batchSubscribe
                                             gunAtomNode
                                             subscriptionTicks
                                             (fun (subscriptionTicks, gunValue, key) ->
@@ -569,7 +566,7 @@ module Engine =
                                     addTimestamp (fun () -> "[ |--| mount ] invoking collection subscribe  ") getLocals
 
                                     let subscription =
-                                        Gun.batchSubscribe
+                                        batchSubscribe
                                             (gunAtomNode.map ())
                                             subscriptionTicks
                                             (fun (subscriptionTicks, gunValue, rawKey) ->
@@ -612,7 +609,7 @@ module Engine =
                                             typeMetadata.OnFormat
                                             BatchKind.Union
                                             (Some alias, storeRoot, collection)
-                                            (NotFromUi, Guid.newTicksGuid (), Gun.AtomKeyFragment (string lastValue))
+                                            (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment (string lastValue))
 
                                     Some (subscription, setAdapterValue)
                                 | _ ->
@@ -658,7 +655,7 @@ module Engine =
             | Atom.AdapterType.Hub ->
                 (fun storeAtomPath getter setter adapterOptions adapterSetAtom ->
                     match adapterOptions with
-                    | Atom.AdapterOptions.Hub (alias, _hubUrl) ->
+                    | Atom.AdapterOptions.Hub (_hubUrl, alias) ->
                         let hub = Atom.get getter Selectors.Hub.hub
                         let privateKeys = Atom.get getter Selectors.Gun.privateKeys
 
@@ -685,9 +682,9 @@ module Engine =
                                     let subscription =
                                         promise {
                                             let! subscription =
-                                                Gun.hubSubscribe
+                                                hubSubscribe
                                                     hub
-                                                    (Sync.Request.Get (alias, atomPath))
+                                                    (Sync.Request.Get (alias |> Alias.Value, atomPath))
                                                     (fun (msg: Sync.Response) ->
                                                         promise {
                                                             Logger.logTrace
@@ -706,7 +703,7 @@ module Engine =
                                                                     | result ->
                                                                         typeMetadata.Decode
                                                                             privateKeys
-                                                                            (Gun.EncryptedSignedValue result)
+                                                                            (EncryptedSignedValue result)
 
                                                                 let getLocals () = $"newValue={newValue} {getLocals ()}"
 
@@ -757,7 +754,7 @@ module Engine =
                                                             if lastValue |> Js.ofNonEmptyObj |> Option.isNone then
                                                                 return null
                                                             else
-                                                                let! (Gun.EncryptedSignedValue encrypted) =
+                                                                let! (EncryptedSignedValue encrypted) =
                                                                     typeMetadata.Encode
                                                                         privateKeys
                                                                         (lastTicks, lastValue)
@@ -767,7 +764,11 @@ module Engine =
 
                                                     let! response =
                                                         hub.invokeAsPromise (
-                                                            Sync.Request.Set (alias, atomPath, newValueJson)
+                                                            Sync.Request.Set (
+                                                                alias |> Alias.Value,
+                                                                atomPath,
+                                                                newValueJson
+                                                            )
                                                         )
 
                                                     match response with
@@ -806,10 +807,10 @@ module Engine =
                                     let getLocals () = $"atomPath={atomPath}  {getLocals ()}"
 
                                     let subscription =
-                                        Gun.hubSubscribe
+                                        hubSubscribe
                                             hub
                                             (Sync.Request.Filter (
-                                                alias,
+                                                alias |> Alias.Value,
                                                 storeRoot |> StoreRoot.Value,
                                                 collection |> Collection.Value
                                             ))
@@ -831,10 +832,8 @@ module Engine =
                                                                 atomType
                                                                 typeMetadata.OnFormat
                                                                 BatchKind.Union
-                                                                (Some (Gun.Alias alias), storeRoot, collection)
-                                                                (NotFromUi,
-                                                                 Guid.newTicksGuid (),
-                                                                 Gun.AtomKeyFragment key))
+                                                                (Some alias, storeRoot, collection)
+                                                                (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment key))
                                                 | response ->
                                                     Logger.logError
                                                         (fun () ->
@@ -860,8 +859,8 @@ module Engine =
                                             atomType
                                             typeMetadata.OnFormat
                                             BatchKind.Union
-                                            (Some (Gun.Alias alias), storeRoot, collection)
-                                            (NotFromUi, Guid.newTicksGuid (), Gun.AtomKeyFragment (string lastValue))
+                                            (Some alias, storeRoot, collection)
+                                            (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment (string lastValue))
 
                                     Some (subscription, setAdapterValue)
                                 | _ ->
@@ -1129,7 +1128,7 @@ module Engine =
     let inline subscribeCollection<'TKey, 'A4 when 'TKey: equality and 'A4: equality and 'TKey :> IComparable>
         storeRoot
         collection
-        (onFormat: Gun.AtomKeyFragment [] -> 'TKey option)
+        (onFormat: AtomKeyFragment [] -> 'TKey option)
         //        (_onFormat: string -> 'TKey)
         =
         let collectionAtomType = typeof<'TKey []>
@@ -1460,8 +1459,8 @@ module Engine =
             typeMetadataMap.[atomType] <-
                 {|
                     DefaultValue = AtomValueRef defaultValue
-                    Decode = unbox Gun.userDecode<TicksGuid * 'A8>
-                    Encode = unbox Gun.userEncode<TicksGuid * 'A8>
+                    Decode = unbox userDecode<TicksGuid * 'A8>
+                    Encode = unbox userEncode<TicksGuid * 'A8>
                     OnFormat = unbox null
                 |}
 
@@ -1686,7 +1685,7 @@ module Engine =
 
     let inline parseGuidKey fn keys =
         match keys |> Array.toList with
-        | Gun.AtomKeyFragment guid :: _ ->
+        | AtomKeyFragment guid :: _ ->
             match Guid.TryParse guid with
             | true, guid -> Some (fn guid)
             | _ -> None
@@ -1705,13 +1704,13 @@ module Engine =
 
             match gunAtomNode with
             | Some gunAtomNode ->
-                let! putResult = Gun.put gunAtomNode (unbox null)
+                let! putResult = put gunAtomNode (unbox null)
                 let getLocals () = $"putResult={putResult} {getLocals ()}"
                 Logger.logDebug (fun () -> $"Engine.delete. {getLocals ()}")
             | None -> failwith "Engine.delete. invalid gun atom node"
 
             match alias with
-            | Some (Gun.Alias alias) ->
+            | Some (Alias alias) ->
                 let hub = Atom.get getter Selectors.Hub.hub
 
                 match hub with

@@ -100,6 +100,9 @@ module Gun =
     type RadQuery = RadQuery of query: {| ``.``: {| ``*``: Pub |} |}
 
 
+    type Alias with
+        static member inline Value (Alias alias) = alias
+
     type AtomKeyFragment with
         static member inline Value (AtomKeyFragment value) = value
 
