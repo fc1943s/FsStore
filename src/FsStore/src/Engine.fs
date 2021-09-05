@@ -429,17 +429,14 @@ module Engine =
                             | None -> None)
                         |> Map.ofArray
 
-                    let getLocals () = $"keys={keys} newMap {getLocals ()}"
+                    let getLocals () = $"keys={keys} newMap={newMap} {getLocals ()}"
 
                     addTimestamp
                         (fun () ->
-                            "[ batchKeysAtom ](y2) invoking keys adapterSetAtom (skipping 'adapterSetAtom (Transaction (fromUi, ticks, atomValueRef))' call) ")
+                            "[ batchKeysAtom ](y2) setting collectionKeysFamily ")
                         getLocals
 
-                    Atom.change
-                        setter
-                        (collectionKeysFamily (alias, storeRoot, collection))
-                        (fun oldValue -> oldValue |> Map.union newMap)
+                    Atom.set setter (collectionKeysFamily (alias, storeRoot, collection)) newMap
                 })
 
     let inline newHashedDisposable (ticks: TicksGuid) =
