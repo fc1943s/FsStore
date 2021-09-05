@@ -324,84 +324,74 @@ module Engine =
         | FromUi
         | NotFromUi
 
-    [<RequireQualifiedAccess>]
-    type KeyOperation =
-        | Add
-        | Remove
-
     let collectionKeysFamily =
         Atom.atomFamilyAtom
-            (fun (_alias: Gun.Alias option, _storeRoot: StoreRoot, _collection: Collection) ->
-                Map.empty: Map<KeyRef, KeyOperation>)
+            (fun (_alias: Gun.Alias option, _storeRoot: StoreRoot, _collection: Collection) -> Set.empty: Set<KeyRef>)
 
 
-    [<RequireQualifiedAccess>]
-    type BatchKind =
-        | Clear
-        | Union
-        | Remove
 
     type Transaction = Transaction of fromUi: FromUi * ticks: TicksGuid * value: AtomValueRef
 
 
-    let lastCollectionValueMap = Dictionary<StoreAtomPath, Set<AtomKeyFragment>> ()
+    let lastCollectionKeyMap = Dictionary<StoreAtomPath, Set<AtomKeyFragment>> ()
 
-    let inline batchKeys storeAtomPath atomType kind data (setAtom: AtomKeyFragment [] -> JS.Promise<unit>) =
+    let inline batchKeyResult storeAtomPath keysBatch =
+        let lastKeySet =
+            lastCollectionKeyMap
+            |> Map.tryFindDictionary storeAtomPath
+            |> Option.defaultValue Set.empty
+
+        let newKeySet =
+            (lastKeySet, keysBatch)
+            ||> Array.fold
+                    (fun newKeySet (kind, _ticks, key) ->
+                        let setFn =
+                            match kind with
+                            | BatchKind.RemoveItem -> Set.remove
+                            | BatchKind.UnionItem -> Set.add
+
+                        newKeySet |> setFn key)
+
+        lastCollectionKeyMap.[storeAtomPath] <- newKeySet
+        let newKeys = newKeySet |> Set.toArray
+
+
+        //                    let newItems =
+        //                        itemsArray
+        //                        |> Seq.collect snd
+        //                        |> Seq.filter (lastSet.Contains >> not)
+        //                        |> Seq.toArray
+        //
+        //                    let items =
+        //                        itemsArray
+        //                        |> Array.collect snd
+        //                        |> Array.append newItems
+        //                        |> Array.distinct
+        //
+        //                    lastValue <- Some (newItems |> Set.ofArray |> Set.union lastSet)
+        let getLocals () =
+            $"keysBatch={keysBatch} newKeys={newKeys} lastKeySet={lastKeySet} {getLocals ()}"
+
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKeyResult {fn ()} | {getLocals ()}")
+
+        addTimestamp (fun () -> "[ ] ") getLocals
+
+        newKeys
+
+    let inline batchKey storeAtomPath atomType kind data (setAtom: AtomKeyFragment [] -> JS.Promise<unit>) =
 
         let getLocals () =
             $"atomType={atomType} atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKeys {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKey {fn ()} | {getLocals ()}")
 
         addTimestamp (fun () -> "[ body ]") getLocals
 
-        batchKeys
-            atomType
-            setAtom
-            data
-            (fun itemsArray ->
-                let newSet = itemsArray |> Seq.collect snd |> Set.ofSeq
+        batchKey atomType kind setAtom data (batchKeyResult storeAtomPath)
 
-                let lastValue =
-                    lastCollectionValueMap
-                    |> Map.tryFindDictionary storeAtomPath
-                    |> Option.defaultValue Set.empty
-
-                let merge =
-                    match kind with
-                    | BatchKind.Clear -> Set.empty
-                    | BatchKind.Union -> lastValue |> Set.union newSet
-                    | BatchKind.Remove -> newSet |> Set.difference lastValue
-
-                lastCollectionValueMap.[storeAtomPath] <- merge
-                let items = merge |> Set.toArray
-
-
-                //                    let newItems =
-                //                        itemsArray
-                //                        |> Seq.collect snd
-                //                        |> Seq.filter (lastSet.Contains >> not)
-                //                        |> Seq.toArray
-                //
-                //                    let items =
-                //                        itemsArray
-                //                        |> Array.collect snd
-                //                        |> Array.append newItems
-                //                        |> Array.distinct
-                //
-                //                    lastValue <- Some (newItems |> Set.ofArray |> Set.union lastSet)
-                let getLocals () =
-                    $"lastValue={lastValue} items={items} itemsArray={itemsArray} {getLocals ()}"
-
-                addTimestamp (fun () -> "[ Gun.batchKeys ](y2) ") getLocals
-
-                items)
-
-    //                                    let batchKeysAtom (fromUi: FromUi, ticks, value) kind =
-    //                                        batchKeys adapterSetAtom (fromUi, ticks, value) kind
-
-    let inline batchKeysAtom setter atomType onFormat kind (alias, storeRoot, collection) (fromUi, ticks, value) =
+    let inline batchAtomKey setter atomType onFormat kind (alias, storeRoot, collection) (fromUi, ticks, value) =
         let storeAtomPath = CollectionAtomPath (storeRoot, collection)
 
         let getLocals () =
@@ -412,31 +402,25 @@ module Engine =
 
         addTimestamp (fun () -> "[ body ]") getLocals
 
-        batchKeys
+        batchKey
             storeAtomPath
             atomType
             kind
-            (ticks, value |> Array.singleton)
+            (ticks, value)
             (fun keys ->
                 promise {
-                    let newMap =
+                    let newSet =
                         keys
                         |> Array.map Array.singleton
-                        |> Array.map onFormat
-                        |> Array.choose
-                            (function
-                            | Some formattedKey -> Some (formattedKey, KeyOperation.Add)
-                            | None -> None)
-                        |> Map.ofArray
+                        |> Array.choose onFormat
+                        |> Set.ofArray
 
-                    let getLocals () = $"keys={keys} newMap={newMap} {getLocals ()}"
+                    let getLocals () =
+                        $"keys={keys} newSet={newSet} {getLocals ()}"
 
-                    addTimestamp
-                        (fun () ->
-                            "[ batchKeysAtom ](y2) setting collectionKeysFamily ")
-                        getLocals
+                    addTimestamp (fun () -> "[ batchKeysAtom ](y2) setting collectionKeysFamily ") getLocals
 
-                    Atom.set setter (collectionKeysFamily (alias, storeRoot, collection)) newMap
+                    Atom.set setter (collectionKeysFamily (alias, storeRoot, collection)) newSet
                 })
 
     let inline newHashedDisposable (ticks: TicksGuid) =
@@ -576,13 +560,13 @@ module Engine =
                                                             "[ ||==>X Gun.batchSubscribe.on() ](j4-1) inside gun.map().on() ")
                                                         getLocals
 
-                                                    batchKeysAtom
+                                                    batchAtomKey
                                                         setter
                                                         atomType
                                                         typeMetadata.OnFormat
                                                         (match gunValue |> Option.ofObjUnbox with
-                                                         | Some _ -> BatchKind.Union
-                                                         | _ -> BatchKind.Remove)
+                                                         | Some _ -> BatchKind.UnionItem
+                                                         | _ -> BatchKind.RemoveItem)
                                                         (Some alias, storeRoot, collection)
                                                         (NotFromUi, Guid.newTicksGuid (), rawKey)
                                                 })
@@ -600,13 +584,14 @@ module Engine =
                                                 "[ ||==> collection setAdapterValue ](j4-2) calling batchKeysAtom  ")
                                             getLocals
 
-                                        batchKeysAtom
-                                            setter
-                                            atomType
-                                            typeMetadata.OnFormat
-                                            BatchKind.Union
-                                            (Some alias, storeRoot, collection)
-                                            (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment (string lastValue))
+                                        if lastValue <> null then
+                                            batchAtomKey
+                                                setter
+                                                atomType
+                                                typeMetadata.OnFormat
+                                                BatchKind.UnionItem
+                                                (Some alias, storeRoot, collection)
+                                                (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment (string lastValue))
 
                                     Some (subscription, setAdapterValue)
                                 | _ ->
@@ -804,33 +789,49 @@ module Engine =
                                     let getLocals () = $"atomPath={atomPath} {getLocals ()}"
 
                                     let handle (items: string []) =
+                                        let lastKeySet =
+                                            lastCollectionKeyMap
+                                            |> Map.tryFindDictionary storeAtomPath
+                                            |> Option.defaultValue Set.empty
+
+                                        let newKeysSet = items |> Array.map AtomKeyFragment |> Set.ofArray
+
+                                        let keysToAddSet =
+                                            newKeysSet
+                                            |> Set.filter (lastKeySet.Contains >> not)
+
+                                        let keysToRemoveSet =
+                                            lastKeySet
+                                            |> Set.filter (newKeysSet.Contains >> not)
+
+                                        let addArray =
+                                            keysToAddSet
+                                            |> Set.toArray
+                                            |> Array.map (fun key -> BatchKind.UnionItem, key)
+
+                                        let removeArray =
+                                            keysToRemoveSet
+                                            |> Set.toArray
+                                            |> Array.map (fun key -> BatchKind.RemoveItem, key)
+
                                         let getLocals () =
-                                            $"items.Length={items.Length} {getLocals ()}"
+                                            $"items={items} lastKeySet={lastKeySet} keysToAddSet={keysToAddSet} keysToRemoveSet={keysToRemoveSet} {getLocals ()}"
 
                                         addTimestamp
                                             (fun () -> "CollectionAtomPath hub FilterResult stream handle")
                                             getLocals
 
-                                        if items |> Array.isEmpty then
-                                            batchKeysAtom
-                                                setter
-                                                atomType
-                                                typeMetadata.OnFormat
-                                                BatchKind.Clear
-                                                (Some alias, storeRoot, collection)
-                                                (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment null)
-                                        else
-                                            items
-                                            |> Array.iter
-                                                (fun key ->
-                                                    batchKeysAtom
-                                                        setter
-                                                        atomType
-                                                        typeMetadata.OnFormat
-                                                        BatchKind.Union
-                                                        (Some alias, storeRoot, collection)
-                                                        (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment key))
-
+                                        addArray
+                                        |> Array.append removeArray
+                                        |> Array.iter
+                                            (fun (kind, key) ->
+                                                batchAtomKey
+                                                    setter
+                                                    atomType
+                                                    typeMetadata.OnFormat
+                                                    kind
+                                                    (Some alias, storeRoot, collection)
+                                                    (NotFromUi, Guid.newTicksGuid (), key))
 
                                     Selectors.Hub.hubSubscriptionMap.[(alias, storeRoot, collection)] <- handle
 
@@ -851,17 +852,7 @@ module Engine =
                                                     getLocals
 
                                                 match response with
-                                                | Sync.Response.FilterResult keys ->
-                                                    keys
-                                                    |> Array.iter
-                                                        (fun key ->
-                                                            batchKeysAtom
-                                                                setter
-                                                                atomType
-                                                                typeMetadata.OnFormat
-                                                                BatchKind.Union
-                                                                (Some alias, storeRoot, collection)
-                                                                (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment key))
+                                                | Sync.Response.FilterResult keys -> handle keys
                                                 | response ->
                                                     Logger.logError
                                                         (fun () ->
@@ -880,18 +871,21 @@ module Engine =
                                         let getLocals () =
                                             $"fromUi={fromUi} lastTicks={lastTicks} lastValue={lastValue} {getLocals ()}"
 
-                                        addTimestamp
-                                            (fun () ->
-                                                "[ ||==> collection setAdapterValue ](j4-2) calling batchKeysAtom  ")
-                                            getLocals
 
-                                        batchKeysAtom
-                                            setter
-                                            atomType
-                                            typeMetadata.OnFormat
-                                            BatchKind.Union
-                                            (Some alias, storeRoot, collection)
-                                            (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment (string lastValue))
+                                        failwith $"invalid adapter assign {getLocals ()}"
+
+                                    //                                        addTimestamp
+//                                            (fun () ->
+//                                                "[ ||==> collection setAdapterValue ](j4-2) calling batchKeysAtom  ")
+//                                            getLocals
+//
+//                                        batchAtomKey
+//                                            setter
+//                                            atomType
+//                                            typeMetadata.OnFormat
+//                                            BatchKind.Union
+//                                            (Some alias, storeRoot, collection)
+//                                            (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment (string lastValue))
 
                                     Some (subscription, setAdapterValue)
                                 | _ ->
@@ -1232,29 +1226,16 @@ module Engine =
             storeAtomPath
             (fun getter ->
                 refreshAdapterValues getter
-
                 let alias = Atom.get getter Selectors.Gun.alias
-
-                let getLocals () = $"alias={alias} {getLocals ()}"
-
                 let collectionKeys = Atom.get getter (collectionKeysFamily (alias, storeRoot, collection))
 
-                let result =
-                    collectionKeys
-                    |> Map.filter
-                        (fun _ keyOperation ->
-                            match keyOperation with
-                            | KeyOperation.Add -> true
-                            | _ -> false)
-                    |> Map.keys
-                    |> Seq.toArray
-
                 let getLocals () =
-                    $"collectionKeys={collectionKeys} result={Json.encodeWithNull result} {getLocals ()}"
+                    $"alias={alias} collectionKeys={collectionKeys} {getLocals ()}"
 
                 addTimestamp (fun () -> "[ wrapper.get() ](z3) ") getLocals
 
-                result
+                collectionKeys
+                |> Set.toArray
                 |> Array.map (fun (KeyRef key) -> key |> unbox<'TKey>))
         |> Atom.split
 
@@ -1593,32 +1574,42 @@ module Engine =
 
                     let alias = Atom.get getter Selectors.Gun.alias
                     let collectionPath = storeAtomPath |> StoreAtomPath.CollectionPath
-                    let keys = storeAtomPath |> StoreAtomPath.Keys
 
                     let getLocals () =
-                        $"collectionPath={collectionPath} keys={keys} {getLocals ()}"
+                        $"collectionPath={collectionPath} {getLocals ()}"
 
                     match collectionPath with
-                    | Some (storeRoot, collection) when collectionTypeMap.ContainsKey ((storeRoot, collection)) ->
+                    | Some (storeRoot, collection) when
+                        collectionTypeMap.ContainsKey ((storeRoot, collection))
+                        && newValue <> unbox null
+                        ->
                         let collectionAtomType = collectionTypeMap.[(storeRoot, collection)]
                         let collectionType = DataType.Key, collectionAtomType
 
                         if typeMetadataMap.ContainsKey collectionType then
                             let typeMetadata = typeMetadataMap.[collectionType]
 
-                            let keys = keys |> Option.bind typeMetadata.OnFormat
+                            let key =
+                                storeAtomPath
+                                |> StoreAtomPath.Keys
+                                |> Option.map Array.toList
 
-                            match keys with
-                            | Some keys ->
+                            let getLocals () = $"key={key} {getLocals ()}"
+
+                            match key with
+                            | Some (key :: _) ->
                                 addTimestamp
                                     (fun () -> "[ updateKey ](a6-1) saving key. invoking collection Atom.change ")
                                     getLocals
 
-                                Atom.change
+                                batchAtomKey
                                     setter
-                                    (collectionKeysFamily (alias, storeRoot, collection))
-                                    (fun oldValue -> oldValue |> Map.add keys KeyOperation.Add)
-                            | None ->
+                                    collectionType
+                                    typeMetadata.OnFormat
+                                    BatchKind.UnionItem
+                                    (alias, storeRoot, collection)
+                                    (NotFromUi, Guid.newTicksGuid (), key)
+                            | _ ->
                                 addTimestamp
                                     (fun () -> "[ updateKey ](a6-1) skipping key. skipping Atom.change ")
                                     getLocals

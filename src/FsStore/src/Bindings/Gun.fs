@@ -458,9 +458,9 @@ module Gun =
             )
         )
 
-    let inline batchKeys atomType fn (ticks, data) map =
+    let inline batchKey atomType kind fn (ticks, data) map =
         let fn = map >> fn
-        Batcher.batch (Batcher.BatchType.KeysFromServer (atomType, data, ticks, fn))
+        Batcher.batch (Batcher.BatchType.Key (atomType, kind, data, ticks, fn))
 
     let inline batchSubscribe gunAtomNode ticks trigger =
         let inline fn ticks =

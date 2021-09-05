@@ -38,18 +38,24 @@ module Batcher =
         | Data
 
     [<RequireQualifiedAccess>]
+    type BatchKind =
+        | UnionItem
+        | RemoveItem
+
+    [<RequireQualifiedAccess>]
     type BatchType<'TKey, 'TValue> =
-        | KeysFromServer of
-            atomType: (DataType * Type) *
-            keys: 'TKey [] *
-            ticks: TicksGuid *
-            trigger: ((TicksGuid * 'TKey []) [] -> JS.Promise<unit>)
+        | Subscribe of ticks: TicksGuid * trigger: (TicksGuid -> JS.Promise<IDisposable>)
         | Data of
             ticks: TicksGuid *
             data: 'TValue *
             key: string *
             trigger: (TicksGuid * 'TValue * string -> JS.Promise<unit>)
-        | Subscribe of ticks: TicksGuid * trigger: (TicksGuid -> JS.Promise<IDisposable>)
+        | Key of
+            atomType: (DataType * Type) *
+            batchKind: BatchKind *
+            key: 'TKey *
+            ticks: TicksGuid *
+            trigger: ((BatchKind * TicksGuid * 'TKey) [] -> JS.Promise<unit>)
         | Set of ticks: TicksGuid * trigger: (TicksGuid -> JS.Promise<unit>)
 
     let inline macroQueue fn =
@@ -76,8 +82,8 @@ module Batcher =
                     | BatchType.Set (ticks, trigger) -> Some (ticks, trigger), None, None, None
                     | BatchType.Subscribe (ticks, trigger) -> None, Some (ticks, trigger), None, None
                     | BatchType.Data (ticks, data, key, trigger) -> None, None, Some (ticks, data, key, trigger), None
-                    | BatchType.KeysFromServer (atomType, item, ticks, trigger) ->
-                        None, None, None, Some (atomType, item, ticks, trigger))
+                    | BatchType.Key (atomType, kind, item, ticks, trigger) ->
+                        None, None, None, Some (atomType, kind, item, ticks, trigger))
 
             let! setDataDisposables =
                 items
@@ -115,16 +121,16 @@ module Batcher =
                 | [||] -> [||]
                 | _ ->
                     keysFromServer
-                    |> Array.groupBy (fun (atomType, _, _, _) -> atomType)
+                    |> Array.groupBy (fun (atomType, _, _, _, _) -> atomType)
                     |> Array.map
                         (fun (_, group) ->
                             let trigger =
                                 group
                                 |> Array.last
-                                |> fun (_, _, _, trigger) -> trigger
+                                |> fun (_, _, _, _, trigger) -> trigger
 
                             group
-                            |> Array.map (fun (_, item, ticks, _) -> ticks, item)
+                            |> Array.map (fun (_, kind, item, ticks, _) -> kind, ticks, item)
                             |> trigger)
                 |> Promise.all
 
