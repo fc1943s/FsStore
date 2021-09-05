@@ -4,7 +4,7 @@
         <TargetFramework>net6.0</TargetFramework>
         <LangVersion>preview</LangVersion>
         <PackageId>FsStore</PackageId>
-        <Version>0.2.0-alpha.29</Version>
+        <Version>0.2.0-alpha.30</Version>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="src\Bindings\Batcher.fs" />
@@ -23,15 +23,6 @@
         <Compile Include="src\Atoms\Join.fs" />
         <Compile Include="src\Primitives.fs" />
         <Compile Include="src\BaseStore.fs" />
-        <Compile Include="src\AtomWithSubscription.fs" />
-        <Compile Include="src\Store\SyncEngine.fs" />
-        <Compile Include="src\Store\SyncSubscribe.fs" />
-        <Compile Include="src\Store\SyncUnsubscribe.fs" />
-        <Compile Include="src\Store\PutFromUi.fs" />
-        <Compile Include="src\Store\SetInternalFromSync.fs" />
-        <Compile Include="src\Store\AtomWithSync.fs" />
-        <Compile Include="src\Store\AtomWithStorageSync.fs" />
-        <Compile Include="src\Store\SelectAtomSyncKeys.fs" />
         <Compile Include="src\Utils\TempValue.fs" />
         <Compile Include="src\Hydrate.fs" />
         <Compile Include="src\Hooks\Store.fs" />

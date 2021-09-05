@@ -838,11 +838,7 @@ module Engine =
                                     let subscription =
                                         hubSubscribe
                                             hub
-                                            (Sync.Request.Filter (
-                                                alias |> Alias.Value,
-                                                storeRoot |> StoreRoot.Value,
-                                                collection |> Collection.Value
-                                            ))
+                                            (Sync.Request.Filter (alias |> Alias.Value, atomPath))
                                             (fun (response: Sync.Response) ->
                                                 let getLocals () = $"response={response}  {getLocals ()}"
 

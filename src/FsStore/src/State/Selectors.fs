@@ -18,6 +18,24 @@ open FsStore.Bindings
 
 [<AutoOpen>]
 module SelectorsMagic =
+    module Sync =
+        [<RequireQualifiedAccess>]
+        type Request =
+            | Connect of alias: string
+            | Set of alias: string * atomPath: string * value: string
+            | Get of alias: string * atomPath: string
+            | Filter of alias: string * atomPath: string
+
+        [<RequireQualifiedAccess>]
+        type Response =
+            | ConnectResult
+            | SetResult of ok: bool
+            | GetResult of value: string option
+            | GetStream of alias: string * atomPath: string * value: string option
+            | FilterResult of keys: string []
+            | FilterStream of alias: string * atomPath: string * keys: string []
+
+
     module Selectors =
         let rec deviceInfo =
             Atom.readSelector (RootAtomPath (FsStore.storeRoot, AtomName (nameof deviceInfo))) (fun _ -> Dom.deviceInfo)
@@ -330,21 +348,26 @@ module SelectorsMagic =
                                                     Logger.logDebug
                                                         (fun () ->
                                                             $"Selectors.Hub.hubConnection. Sync.Response.GetResult value={value}")
-                                                | Sync.Response.GetStream (key, value) ->
+                                                | Sync.Response.GetStream (alias, key, value) ->
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            $"Selectors.Hub.hubConnection. Sync.Response.GetStream key={key} value={value}")
+                                                            $"Selectors.Hub.hubConnection. Sync.Response.GetStream alias={alias} key={key} value={value}")
                                                 | Sync.Response.FilterResult keys ->
                                                     Logger.logDebug
                                                         (fun () ->
                                                             $"Selectors.Hub.hubConnection. Sync.Response.FilterResult keys={keys}")
-                                                | Sync.Response.FilterStream (key, keys) ->
+                                                | Sync.Response.FilterStream (alias, atomPath, keys) ->
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            $"Selectors.Hub.hubConnection. Sync.Response.FilterStream key={key} keys={keys}")
+                                                            $"Selectors.Hub.hubConnection. Sync.Response.FilterStream alias={alias} atomPath={atomPath} keys={keys}")
 
                                                 match msg with
-                                                | Sync.Response.FilterStream ((alias, storeRoot, collection), keys) ->
+                                                | Sync.Response.FilterStream (alias, atomPath, keys) ->
+                                                    let storeRoot, collection =
+                                                        match atomPath |> String.split "/" |> Array.toList with
+                                                        | storeRoot :: collection :: _ -> storeRoot, collection
+                                                        | _ -> failwith $"invalid atom path {getLocals ()}"
+
                                                     match
                                                         hubSubscriptionMap
                                                         |> Map.tryFindDictionary
