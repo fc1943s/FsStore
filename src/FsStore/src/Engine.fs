@@ -337,7 +337,7 @@ module Engine =
 
     [<RequireQualifiedAccess>]
     type BatchKind =
-        | Replace
+        | Clear
         | Union
         | Remove
 
@@ -370,7 +370,7 @@ module Engine =
 
                 let merge =
                     match kind with
-                    | BatchKind.Replace -> newSet
+                    | BatchKind.Clear -> Set.empty
                     | BatchKind.Union -> lastValue |> Set.union newSet
                     | BatchKind.Remove -> newSet |> Set.difference lastValue
 
@@ -804,7 +804,38 @@ module Engine =
                                         |> StoreAtomPath.AtomPath
                                         |> AtomPath.Value
 
-                                    let getLocals () = $"atomPath={atomPath}  {getLocals ()}"
+                                    let getLocals () = $"atomPath={atomPath} {getLocals ()}"
+
+                                    let handle (items: string []) =
+                                        let getLocals () =
+                                            $"items.Length={items.Length} {getLocals ()}"
+
+                                        addTimestamp
+                                            (fun () -> "CollectionAtomPath hub FilterResult stream handle")
+                                            getLocals
+
+                                        if items |> Array.isEmpty then
+                                            batchKeysAtom
+                                                setter
+                                                atomType
+                                                typeMetadata.OnFormat
+                                                BatchKind.Clear
+                                                (Some alias, storeRoot, collection)
+                                                (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment null)
+                                        else
+                                            items
+                                            |> Array.iter
+                                                (fun key ->
+                                                    batchKeysAtom
+                                                        setter
+                                                        atomType
+                                                        typeMetadata.OnFormat
+                                                        BatchKind.Union
+                                                        (Some alias, storeRoot, collection)
+                                                        (NotFromUi, Guid.newTicksGuid (), AtomKeyFragment key))
+
+
+                                    Selectors.Hub.hubSubscriptionMap.[(alias, storeRoot, collection)] <- handle
 
                                     let subscription =
                                         hubSubscribe
@@ -840,6 +871,9 @@ module Engine =
                                                             $"Store.selectAtomSyncKeys Gun.batchHubSubscribe invalid response={response}"))
                                             (fun ex ->
                                                 let getLocals () = $"ex={ex} {getLocals ()}"
+
+                                                Selectors.Hub.hubSubscriptionMap.Remove ((alias, storeRoot, collection))
+                                                |> ignore
 
                                                 Logger.logError (fun () -> $"hub.map().on() error {getLocals ()}"))
 
