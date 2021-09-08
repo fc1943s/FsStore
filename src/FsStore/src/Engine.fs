@@ -661,6 +661,33 @@ module Engine =
                                         (fun () -> $"[ |--| mount ] invoking indexed subscribe. name={name} ")
                                         getLocals
 
+                                    let handle value =
+                                        promise {
+                                            let! newValue =
+                                                match value |> Option.defaultValue null with
+                                                | null -> unbox null |> Promise.lift
+                                                | result ->
+                                                    typeMetadata.Decode privateKeys (EncryptedSignedValue result)
+
+                                            let getLocals () = $"newValue={newValue} {getLocals ()}"
+
+                                            match newValue with
+                                            | Some (ticks, value) ->
+                                                addTimestamp
+                                                    (fun () ->
+                                                        "[ ||==> Hub.batchSubscribe.on() ](j4-1(2)) invoking debouncedAdapterSetAtom. inside hub.on() ")
+                                                    getLocals
+
+                                                adapterSetAtom (Transaction (NotFromUi, ticks, value))
+                                            | None ->
+                                                addTimestamp
+                                                    (fun () ->
+                                                        "[ ||==> Hub.batchSubscribe.on() ](j4-1(3)) skipped set from hub ")
+                                                    getLocals
+                                        }
+
+                                    Selectors.Hub.hubAtomSubscriptionMap.[(alias, storeAtomPath)] <- handle
+
                                     let subscription =
                                         promise {
                                             let! subscription =
@@ -669,48 +696,29 @@ module Engine =
                                                     (Sync.Request.Get (alias |> Alias.Value, atomPath))
                                                     (fun (msg: Sync.Response) ->
                                                         promise {
-                                                            Logger.logTrace
-                                                                (fun () ->
-                                                                    $"Store.syncSubscribe. wrapper.next() HUB stream subscribe] msg={msg} {getLocals ()} ")
 
                                                             match msg with
                                                             | Sync.Response.GetResult result ->
                                                                 Logger.logTrace
                                                                     (fun () ->
-                                                                        $"Store.syncSubscribe. Sync.Response.GetResult  atomPath={atomPath} {getLocals ()} ")
+                                                                        $"Store.syncSubscribe. Sync.Response.GetResult msg={msg} atomPath={atomPath} {getLocals ()} ")
 
-                                                                let! newValue =
-                                                                    match result |> Option.defaultValue null with
-                                                                    | null -> unbox null |> Promise.lift
-                                                                    | result ->
-                                                                        typeMetadata.Decode
-                                                                            privateKeys
-                                                                            (EncryptedSignedValue result)
-
-                                                                let getLocals () = $"newValue={newValue} {getLocals ()}"
-
-                                                                match newValue with
-                                                                | Some (ticks, value) ->
-                                                                    addTimestamp
-                                                                        (fun () ->
-                                                                            "[ ||==> Hub.batchSubscribe.on() ](j4-1(2)) invoking debouncedAdapterSetAtom. inside hub.on() ")
-                                                                        getLocals
-
-                                                                    adapterSetAtom (
-                                                                        Transaction (NotFromUi, ticks, value)
-                                                                    )
-                                                                | None ->
-                                                                    addTimestamp
-                                                                        (fun () ->
-                                                                            "[ ||==> Hub.batchSubscribe.on() ](j4-1(3)) skipped set from hub ")
-                                                                        getLocals
-                                                            | _ -> ()
+                                                                do! handle result
+                                                            | _ ->
+                                                                Logger.logTrace
+                                                                    (fun () ->
+                                                                        $"Store.syncSubscribe. wrapper.next() HUB stream subscribe] skipped. msg={msg} {getLocals ()} ")
                                                         }
                                                         |> Promise.start)
                                                     (fun ex ->
                                                         Logger.logError
                                                             (fun () ->
-                                                                $"Store.syncSubscribe. onError... ex={ex} {getLocals ()} "))
+                                                                $"Store.syncSubscribe. onError... ex={ex} {getLocals ()} ")
+
+                                                        Selectors.Hub.hubAtomSubscriptionMap.Remove (
+                                                            (alias, storeAtomPath)
+                                                        )
+                                                        |> ignore)
 
                                             let getLocals () =
                                                 $"subscription={subscription} {getLocals ()}"
@@ -833,7 +841,7 @@ module Engine =
                                                     (Some alias, storeRoot, collection)
                                                     (NotFromUi, Guid.newTicksGuid (), key))
 
-                                    Selectors.Hub.hubSubscriptionMap.[(alias, storeRoot, collection)] <- handle
+                                    Selectors.Hub.hubKeySubscriptionMap.[(alias, storeRoot, collection)] <- handle
 
                                     let subscription =
                                         hubSubscribe
@@ -856,7 +864,9 @@ module Engine =
                                             (fun ex ->
                                                 let getLocals () = $"ex={ex} {getLocals ()}"
 
-                                                Selectors.Hub.hubSubscriptionMap.Remove ((alias, storeRoot, collection))
+                                                Selectors.Hub.hubKeySubscriptionMap.Remove (
+                                                    (alias, storeRoot, collection)
+                                                )
                                                 |> ignore
 
                                                 Logger.logError (fun () -> $"hub.map().on() error {getLocals ()}"))

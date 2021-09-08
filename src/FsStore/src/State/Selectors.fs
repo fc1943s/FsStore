@@ -289,7 +289,8 @@ module SelectorsMagic =
             let inline readSelector name fn =
                 Atom.readSelector (ValueAtomPath (FsStore.storeRoot, collection, [], AtomName name)) fn
 
-            let hubSubscriptionMap = Dictionary<Gun.Alias * StoreRoot * Collection, string [] -> unit> ()
+            let hubKeySubscriptionMap = Dictionary<Gun.Alias * StoreRoot * Collection, string [] -> unit> ()
+            let hubAtomSubscriptionMap = Dictionary<Gun.Alias * StoreAtomPath, string option -> JS.Promise<unit>> ()
 
             let rec hubConnection =
                 readSelector
@@ -348,10 +349,47 @@ module SelectorsMagic =
                                                     Logger.logDebug
                                                         (fun () ->
                                                             $"Selectors.Hub.hubConnection. Sync.Response.GetResult value={value}")
-                                                | Sync.Response.GetStream (alias, key, value) ->
+                                                | Sync.Response.GetStream (alias, atomPath, value) ->
+                                                    let getLocals () =
+                                                        $"alias={alias} atomPath={atomPath} value={value} {getLocals ()}"
+
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            $"Selectors.Hub.hubConnection. Sync.Response.GetStream alias={alias} key={key} value={value}")
+                                                            $"Selectors.Hub.hubConnection / GetStream {getLocals ()}")
+
+                                                    let storeAtomPath =
+                                                        match atomPath |> String.split "/" |> Array.toList with
+                                                        | storeRoot :: collection :: tail ->
+                                                            let name = tail |> List.last
+
+                                                            let keys =
+                                                                tail
+                                                                |> List.take (tail.Length - 1)
+                                                                |> List.map AtomKeyFragment
+
+                                                            StoreAtomPath.ValueAtomPath (
+                                                                StoreRoot storeRoot,
+                                                                Collection collection,
+                                                                keys,
+                                                                AtomName name
+                                                            )
+                                                        | _ -> failwith $"invalid atom path {getLocals ()}"
+
+                                                    match
+                                                        hubAtomSubscriptionMap
+                                                        |> Map.tryFindDictionary ((Alias alias, storeAtomPath))
+                                                        with
+                                                    | Some fn ->
+                                                        Logger.logDebug
+                                                            (fun () ->
+                                                                $"Selectors.Hub.hubConnection. Selectors.hub onMsg msg={msg}. triggering ")
+
+                                                        fn value |> Promise.start
+                                                    | None ->
+                                                        Logger.logDebug
+                                                            (fun () ->
+                                                                $"Selectors.Hub.hubConnection. onMsg msg={msg}. skipping. not in map ")
+
                                                 | Sync.Response.FilterResult keys ->
                                                     Logger.logDebug
                                                         (fun () ->
@@ -369,24 +407,24 @@ module SelectorsMagic =
                                                         | _ -> failwith $"invalid atom path {getLocals ()}"
 
                                                     match
-                                                        hubSubscriptionMap
+                                                        hubKeySubscriptionMap
                                                         |> Map.tryFindDictionary
                                                             ((Alias alias, StoreRoot storeRoot, Collection collection))
                                                         with
                                                     | Some fn ->
                                                         Logger.logDebug
                                                             (fun () ->
-                                                                $"Selectors.Hub.hubConnection. Selectors.hub onMsg msg={msg}. triggering ")
+                                                                $"Selectors.Hub.hubConnection. Selectors.hub. FilterStream. onMsg msg={msg}. triggering ")
 
                                                         fn keys
                                                     | None ->
                                                         Logger.logDebug
                                                             (fun () ->
-                                                                $"Selectors.Hub.hubConnection. onMsg msg={msg}. skipping. not in map ")
+                                                                $"Selectors.Hub.hubConnection. onMsg msg={msg}. FilterStream. skipping. not in map ")
                                                 | _ ->
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            $"Selectors.Hub.hubConnection.  onMsg msg={msg}. skipping. not handled ")))
+                                                            $"Selectors.Hub.hubConnection.  onMsg msg={msg}. FilterStream. skipping. not handled ")))
 
                             Logger.logDebug
                                 (fun () ->
