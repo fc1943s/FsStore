@@ -360,35 +360,46 @@ module SelectorsMagic =
                                                     let storeAtomPath =
                                                         match atomPath |> String.split "/" |> Array.toList with
                                                         | storeRoot :: collection :: tail ->
-                                                            let name = tail |> List.last
+                                                            match tail |> List.tryLast with
+                                                            | None -> None
+                                                            | Some name ->
+                                                                let keys =
+                                                                    match tail with
+                                                                    | [] -> []
+                                                                    | tail ->
+                                                                        tail
+                                                                        |> List.take (tail.Length - 1)
+                                                                        |> List.map AtomKeyFragment
 
-                                                            let keys =
-                                                                tail
-                                                                |> List.take (tail.Length - 1)
-                                                                |> List.map AtomKeyFragment
+                                                                StoreAtomPath.ValueAtomPath (
+                                                                    StoreRoot storeRoot,
+                                                                    Collection collection,
+                                                                    keys,
+                                                                    AtomName name
+                                                                )
+                                                                |> Some
+                                                        | _ -> None
 
-                                                            StoreAtomPath.ValueAtomPath (
-                                                                StoreRoot storeRoot,
-                                                                Collection collection,
-                                                                keys,
-                                                                AtomName name
-                                                            )
-                                                        | _ -> failwith $"invalid atom path {getLocals ()}"
+                                                    match storeAtomPath with
+                                                    | Some storeAtomPath ->
+                                                        match
+                                                            hubAtomSubscriptionMap
+                                                            |> Map.tryFindDictionary ((Alias alias, storeAtomPath))
+                                                            with
+                                                        | Some fn ->
+                                                            Logger.logDebug
+                                                                (fun () ->
+                                                                    $"Selectors.Hub.hubConnection. Selectors.hub onMsg msg={msg}. triggering ")
 
-                                                    match
-                                                        hubAtomSubscriptionMap
-                                                        |> Map.tryFindDictionary ((Alias alias, storeAtomPath))
-                                                        with
-                                                    | Some fn ->
-                                                        Logger.logDebug
-                                                            (fun () ->
-                                                                $"Selectors.Hub.hubConnection. Selectors.hub onMsg msg={msg}. triggering ")
-
-                                                        fn value |> Promise.start
+                                                            fn value |> Promise.start
+                                                        | None ->
+                                                            Logger.logDebug
+                                                                (fun () ->
+                                                                    $"Selectors.Hub.hubConnection. onMsg msg={msg}. skipping. not in map ")
                                                     | None ->
                                                         Logger.logDebug
                                                             (fun () ->
-                                                                $"Selectors.Hub.hubConnection. onMsg msg={msg}. skipping. not in map ")
+                                                                $"Selectors.Hub.hubConnection. onMsg msg={msg}. storeAtomPath={storeAtomPath} skipping. invalid atom ")
 
                                                 | Sync.Response.FilterResult keys ->
                                                     Logger.logDebug
