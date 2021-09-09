@@ -359,22 +359,29 @@ module SelectorsMagic =
 
                                                     let storeAtomPath =
                                                         match atomPath |> String.split "/" |> Array.toList with
-                                                        | storeRoot :: collection :: tail ->
-                                                            match tail |> List.tryLast with
-                                                            | None -> None
-                                                            | Some name ->
-                                                                let keys =
-                                                                    match tail with
-                                                                    | [] -> []
-                                                                    | tail ->
-                                                                        tail
-                                                                        |> List.take (tail.Length - 1)
-                                                                        |> List.map AtomKeyFragment
+                                                        | storeRoot :: tail ->
+                                                            let collection, keys, name =
+                                                                match tail with
+                                                                | [ name ] -> None, [], name
+                                                                | collection :: [ name ] -> Some collection, [], name
+                                                                | collection :: tail ->
+                                                                    let name = tail |> List.last
+                                                                    let keys = tail |> List.take (tail.Length - 1)
+                                                                    Some collection, keys, name
+                                                                | _ -> failwith $"invalid file event {getLocals ()}"
 
+                                                            match collection with
+                                                            | Some collection ->
                                                                 StoreAtomPath.ValueAtomPath (
                                                                     StoreRoot storeRoot,
                                                                     Collection collection,
-                                                                    keys,
+                                                                    keys |> List.map AtomKeyFragment,
+                                                                    AtomName name
+                                                                )
+                                                                |> Some
+                                                            | None ->
+                                                                StoreAtomPath.RootAtomPath (
+                                                                    StoreRoot storeRoot,
                                                                     AtomName name
                                                                 )
                                                                 |> Some
