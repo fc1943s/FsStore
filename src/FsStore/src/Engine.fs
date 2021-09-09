@@ -1081,7 +1081,7 @@ module Engine =
                             setAdapterValue <- Some setAdapterValues
 
                             let! subscription = subscription
-                            gunSubscriptionMap.Add (atomId, Some (subscriptionId, subscription, setAdapterValues))
+                            gunSubscriptionMap.[atomId] <- Some (subscriptionId, subscription, setAdapterValues)
                         | _ ->
                             gunSubscriptionMap.Remove atomId |> ignore
                             setAdapterValue <- None
