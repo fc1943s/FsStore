@@ -429,7 +429,10 @@ module Engine =
 
             return
                 Object.newDisposable
-                    (fun () -> Logger.logDebug (fun () -> $"{nameof FsStore} | BaseStore.newHashedDisposable / Dispose()") getLocals)
+                    (fun () ->
+                        Logger.logDebug
+                            (fun () -> $"{nameof FsStore} | BaseStore.newHashedDisposable / Dispose()")
+                            getLocals)
         }
 
     let inline getAdapterSubscription atomType adapterType =
@@ -722,7 +725,8 @@ module Engine =
                                                         let getLocals () = $"ex={ex} {getLocals ()}"
 
                                                         Logger.logError
-                                                            (fun () -> $"{nameof FsStore} | Store.syncSubscribe. onError...")
+                                                            (fun () ->
+                                                                $"{nameof FsStore} | Store.syncSubscribe. onError...")
                                                             getLocals
 
                                                         Selectors.Hub.hubAtomSubscriptionMap.Remove (
@@ -787,11 +791,17 @@ module Engine =
                                                             )
                                                     | response ->
                                                         let getLocals () = $"response={response} {getLocals ()}"
-                                                        Logger.logError (fun () -> $"{nameof FsStore} | Store.putFromUi. #90592") getLocals
+
+                                                        Logger.logError
+                                                            (fun () -> $"{nameof FsStore} | Store.putFromUi. #90592")
+                                                            getLocals
                                                 with
                                                 | ex ->
                                                     let getLocals () = $"ex={ex} {getLocals ()}"
-                                                    Logger.logError (fun () -> $"{nameof FsStore} | Store.putFromUi. hub.set") getLocals
+
+                                                    Logger.logError
+                                                        (fun () -> $"{nameof FsStore} | Store.putFromUi. hub.set")
+                                                        getLocals
                                         }
                                         |> Promise.start
 
@@ -876,7 +886,10 @@ module Engine =
                                                         getLocals)
                                             (fun ex ->
                                                 let getLocals () = $"ex={ex} {getLocals ()}"
-                                                Logger.logError (fun () -> $"{nameof FsStore} | hub.map().on() error") getLocals
+
+                                                Logger.logError
+                                                    (fun () -> $"{nameof FsStore} | hub.map().on() error")
+                                                    getLocals
 
                                                 Selectors.Hub.hubKeySubscriptionMap.Remove (
                                                     (alias, storeRoot, collection)
@@ -1463,7 +1476,17 @@ module Engine =
                         | Some lastFromUi, Some lastTicks, Some lastValue when ticks.IsNone || lastTicks > ticks.Value ->
                             // set adapter value from local atom
                             addTimestamp (fun () -> "[ (%%%%) invalidAdapter.write() ](c4)") getLocals
-                            setAdapterAtom (Transaction (lastFromUi, lastTicks, lastValue))
+
+                            let newLastFromUi =
+                                match lastFromUi with
+                                | NotFromUi when
+                                    adapterType <> Atom.AdapterType.Memory
+                                    && lastAdapterType <> Atom.AdapterType.Memory
+                                    ->
+                                    FromUi
+                                | _ -> lastFromUi
+
+                            setAdapterAtom (Transaction (newLastFromUi, lastTicks, lastValue))
                         | _ ->
                             addTimestamp
                                 (fun () -> "[ (%%%%) invalidAdapter.write() ](c3) same ticks. skipping")
