@@ -36,16 +36,16 @@ module rec Join =
                 let guidHash = Crypto.getTextGuidHash (atomPath |> AtomPath.Value)
                 let atom = internalAtomFamily guidHash
 
-                Logger.logTrace (fun () -> $"Atoms.Join.joinAtom atomPath={atomPath} guidHash={guidHash}")
+                let getLocals () =
+                    $"atomPath={atomPath} guidHash={guidHash} {getLocals ()}"
+
+                Logger.logTrace (fun () -> $"{nameof FsStore} | Atoms.Join.joinAtom") getLocals
 
                 Atom.Primitives.selector
                     (fun getter ->
                         let value = Atom.get getter atom
-                        Profiling.addCount (fun () -> $"{nameof FsStore} | {atomPath} joinAtom get")
-
-                        Logger.logTrace
-                            (fun () ->
-                                $"Atoms.Join.joinAtom get() atomPath={atomPath} guidHash={guidHash} value={value}")
+                        let getLocals () = $"value={value} {getLocals ()}"
+                        Logger.logTrace (fun () -> $"{nameof FsStore} | Join.createJoinAtom / joinAtom get()") getLocals
 
                         value
                         |> Option.map
@@ -54,15 +54,14 @@ module rec Join =
                                 | _, Some value -> value
                                 | _ -> null))
                     (fun _ setter newValue ->
-                        Profiling.addCount (fun () -> $"{nameof FsStore} | {atomPath} joinAtom set")
 
                         let newValueJson =
                             match Json.encode (atomPath, newValue) with
                             | String.Valid json -> Some json
                             | _ -> None
 
-                        Logger.logTrace
-                            (fun () ->
-                                $"Atoms.Join.joinAtom set() atomPath={atomPath} guidHash={guidHash} newValue={newValue}  newValueJson={newValueJson} ")
+                        let getLocals () =
+                            $"newValue={newValue} newValueJson={newValueJson} {getLocals ()}"
 
+                        Logger.logTrace (fun () -> $"{nameof FsStore} | Join.createJoinAtom / joinAtom set()") getLocals
                         Atom.set setter atom newValueJson))

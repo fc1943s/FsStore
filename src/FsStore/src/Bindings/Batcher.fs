@@ -58,19 +58,19 @@ module Batcher =
             trigger: ((BatchKind * TicksGuid * 'TKey) [] -> JS.Promise<unit>)
         | Set of ticks: TicksGuid * trigger: (TicksGuid -> JS.Promise<unit>)
 
-//    let inline macroQueue fn =
+    //    let inline macroQueue fn =
 //        JS.setTimeout (fn >> Promise.start) 0 |> ignore
     //        fn () |> Promise.start
 
-//    let inline macroQueue2 fn = JS.setTimeout fn 0 |> ignore
+    //    let inline macroQueue2 fn = JS.setTimeout fn 0 |> ignore
 
     let inline wrapTry fn =
         try
             fn ()
         with
         | ex ->
-            Logger.logError (fun () -> $"wrapTry error: {ex.Message}")
-            Logger.consoleError [| ex |]
+            let getLocals () = $"ex={ex} {getLocals ()}"
+            Logger.logError (fun () -> $"[FsStore?] | wrapTry fn exception") getLocals
             JS.undefined
 
     let inline internalBatch (itemsArray: BatchType<obj, obj> []) =
@@ -134,9 +134,10 @@ module Batcher =
                             |> trigger)
                 |> Promise.all
 
-            Profiling.addTimestamp
-                (fun () ->
-                    $"($$) ---- #3b setDataDisposables={Json.encodeWithNull setDataDisposables} subscribeDisposables={Json.encodeWithNull subscribeDisposables} providerDisposables={Json.encodeWithNull providerDisposables} keysDisposables={Json.encodeWithNull keysDisposables} ")
+            let getLocals () =
+                $"setDataDisposables={Json.encodeWithNull setDataDisposables} subscribeDisposables={Json.encodeWithNull subscribeDisposables} providerDisposables={Json.encodeWithNull providerDisposables} keysDisposables={Json.encodeWithNull keysDisposables} {getLocals ()}"
+
+            Profiling.addTimestamp (fun () -> "[FsStore?] | Batcher.internalBatch / $$") getLocals
         }
 
     let (newFn: BatchType<obj, obj> -> Cb<obj> -> unit), lock =

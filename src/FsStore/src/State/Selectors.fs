@@ -54,22 +54,27 @@ module SelectorsMagic =
             let valueAtom = Atom.Primitives.atom lastValue
             let accessorsAtom = Atom.Primitives.atom (None: (Getter<_> * Setter<_>) option)
 
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Selectors.store [ constructor ]")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Selectors.store [ constructor ]") getLocals
 
             let rec valueWrapper =
                 Atom.Primitives.selector
                     (fun getter ->
                         let result = Atom.get getter valueAtom
 
+                        let getLocals () = $"result={result} {getLocals ()}"
+
                         Profiling.addTimestamp
-                            (fun () ->
-                                $"{nameof FsStore} | Selectors.store [ valueWrapper.read(getter) ] result={result}")
+                            (fun () -> $"{nameof FsStore} | Selectors.store [ valueWrapper.read(getter) ]")
+                            getLocals
 
                         result)
                     (fun getter setter newValue ->
+                        let getLocals () = $"newValue={newValue} {getLocals ()}"
+
                         Profiling.addTimestamp
                             (fun () ->
-                                $"{nameof FsStore} | Selectors.store [ valueWrapper.set(getter,setter,newValue) ] newValue={newValue}")
+                                $"{nameof FsStore} | Selectors.store [ valueWrapper.set(getter,setter,newValue) ]")
+                            getLocals
 
                         Atom.set setter accessorsAtom (Some (getter, setter))
                         Atom.set setter valueAtom newValue)
@@ -77,17 +82,21 @@ module SelectorsMagic =
                     false
                     (fun setAtom ->
                         promise {
+                            let getLocals () = $"lastValue={lastValue} {getLocals ()}"
+
                             Profiling.addTimestamp
-                                (fun () ->
-                                    $"{nameof FsStore} | Selectors.store [ valueWrapper.onMount() ] lastValue={lastValue}")
+                                (fun () -> $"{nameof FsStore} | Selectors.store [ valueWrapper.onMount() ]")
+                                getLocals
 
                             lastValue <- lastValue + 1
                             setAtom lastValue
                         })
                     (fun () ->
+                        let getLocals () = $"lastValue={lastValue} {getLocals ()}"
+
                         Profiling.addTimestamp
-                            (fun () ->
-                                $"{nameof FsStore} | Selectors.store [ valueWrapper.onUnmount() ] lastValue={lastValue}"))
+                            (fun () -> $"{nameof FsStore} | Selectors.store [ valueWrapper.onUnmount() ] ")
+                            getLocals)
 
             Atom.readSelector
                 (RootAtomPath (FsStore.storeRoot, AtomName (nameof store)))
@@ -95,9 +104,12 @@ module SelectorsMagic =
                     let value = Atom.get getter valueWrapper
                     let accessors = Atom.get getter accessorsAtom
 
+                    let getLocals () =
+                        $"value={value} accessors={accessors.IsSome} {getLocals ()}"
+
                     Profiling.addTimestamp
-                        (fun () ->
-                            $"{nameof FsStore} | Selectors.store [ wrapper.read(getter) ] value={value} accessors={accessors.IsSome}")
+                        (fun () -> $"{nameof FsStore} | Selectors.store [ wrapper.read(getter) ]")
+                        getLocals
 
                     accessors)
 
@@ -150,7 +162,10 @@ module SelectorsMagic =
                                     GunProps.multicast = None
                                 }
 
-                        Logger.logDebug (fun () -> $"Selectors.Gun.gun. gunPeers={gunPeers}. gun={gun} returning...")
+                        let getLocals () =
+                            $"gunPeers={gunPeers}. gun={gun} {getLocals ()}"
+
+                        Logger.logDebug (fun () -> $"{nameof FsStore} | Selectors.Gun.gun. returning...") getLocals
 
                         gun)
 
@@ -162,7 +177,10 @@ module SelectorsMagic =
                         let _gunTrigger = Atom.get getter Atoms.gunTrigger
                         let gun = Atom.get getter gun
 
-                        logger.Debug (fun () -> $"Selectors.Gun.gunUser. keys={gun.user().__.sea |> Js.objectKeys}")
+                        let getLocals () =
+                            $"keys={gun.user().__.sea |> Js.objectKeys} {getLocals ()}"
+
+                        logger.Debug (fun () -> "Selectors.Gun.gunUser") getLocals
 
                         gun.user ())
 
@@ -174,8 +192,10 @@ module SelectorsMagic =
                         let _gunTrigger = Atom.get getter Atoms.gunTrigger
                         let gunUser = Atom.get getter gunUser
 
-                        logger.Debug
-                            (fun () -> $"Selectors.Gun.gunNamespace. gunUser.is={JS.JSON.stringify gunUser.is}")
+                        let getLocals () =
+                            $"gunUser.is={JS.JSON.stringify gunUser.is} {getLocals ()}"
+
+                        logger.Debug (fun () -> "Selectors.Gun.gunNamespace") getLocals
 
                         gunUser :> Types.IGunNode)
 
@@ -191,16 +211,21 @@ module SelectorsMagic =
                         | Some {
                                    alias = Some (GunUserAlias.Alias (Alias (String.Valid alias)))
                                } ->
-                            logger.Debug
-                                (fun () ->
-                                    $"Selectors.Gun.alias. alias={alias}  keys={gunUser.__.sea |> Js.objectKeys}")
+                            let getLocals () =
+                                $"alias={alias} keys={gunUser.__.sea |> Js.objectKeys} {getLocals ()}"
+
+                            logger.Debug (fun () -> "Selectors.Gun.alias") getLocals
 
                             Some (Alias alias)
                         | _ ->
                             match gunUser.__.sea with
                             | Some { priv = Some (Priv (String.Valid _)) } ->
                                 let internalAlias = Atom.get getter Atoms.internalAlias
-                                logger.Debug (fun () -> $"Selectors.Gun.alias. internalAlias={internalAlias}")
+
+                                let getLocals () =
+                                    $"internalAlias={internalAlias} {getLocals ()}"
+
+                                logger.Debug (fun () -> "Selectors.Gun.alias") getLocals
                                 internalAlias
                             | _ -> None)
 
@@ -211,7 +236,11 @@ module SelectorsMagic =
                         let logger = Atom.get getter logger
                         let _gunTrigger = Atom.get getter Atoms.gunTrigger
                         let gunUser = Atom.get getter Gun.gunUser
-                        logger.Debug (fun () -> $"Selectors.Gun.keys. keys={gunUser.__.sea |> Js.objectKeys}")
+
+                        let getLocals () =
+                            $"keys={gunUser.__.sea |> Js.objectKeys} {getLocals ()}"
+
+                        logger.Debug (fun () -> "Selectors.Gun.keys") getLocals
                         gunUser.__.sea)
 
 
@@ -274,7 +303,9 @@ module SelectorsMagic =
                         let getLocals () =
                             $"alias={alias} gunOptions={Json.encodeWithNull gunOptions}"
 
-                        Profiling.addTimestamp (fun () -> $"Selectors.Gun.adapterOptions get() {getLocals ()}")
+                        Profiling.addTimestamp
+                            (fun () -> $"{nameof FsStore} | Selectors.Gun.adapterOptions get()")
+                            getLocals
 
                         match gunOptions, alias with
                         | GunOptions.Sync peers, Some alias -> Some (Atom.AdapterOptions.Gun (peers, alias))
@@ -301,7 +332,10 @@ module SelectorsMagic =
                         let hubUrl = Atom.get getter Atoms.hubUrl
                         let alias = Atom.get getter Gun.alias
 
-                        Logger.logDebug (fun () -> $"Selectors.Hub.hubConnection. start. alias={alias} hubUrl={hubUrl}")
+                        let getLocals () =
+                            $"alias={alias} hubUrl={hubUrl} {getLocals ()}"
+
+                        Logger.logDebug (fun () -> $"{nameof FsStore} | Selectors.Hub.hubConnection. start") getLocals
 
                         match alias, hubUrl with
                         | Some _, Some (String.Valid hubUrl) ->
@@ -317,45 +351,63 @@ module SelectorsMagic =
                                                         fun _context ->
                                                             Logger.logDebug
                                                                 (fun () ->
-                                                                    "Selectors.Hub.hubConnection. SignalR.connect(). withAutomaticReconnect")
+                                                                    $"{nameof FsStore} | Selectors.Hub.hubConnection. SignalR.connect(). withAutomaticReconnect")
+                                                                getLocals
 
                                                             Some timeout
                                                 }
                                             )
                                             .onReconnecting(fun ex ->
+                                                let getLocals () = $"ex={ex} {getLocals ()}"
+
                                                 Logger.logDebug
                                                     (fun () ->
-                                                        $"Selectors.Hub.hubConnection. SignalR.connect(). onReconnecting ex={ex}"))
+                                                        $"{nameof FsStore} | Selectors.Hub.hubConnection. SignalR.connect(). onReconnecting ")
+                                                    getLocals)
                                             .onReconnected(fun ex ->
+                                                let getLocals () = $"ex={ex} {getLocals ()}"
+
                                                 Logger.logDebug
                                                     (fun () ->
-                                                        $"Selectors.Hub.hubConnection. SignalR.connect(). onReconnected ex={ex}"))
+                                                        $"{nameof FsStore} | Selectors.Hub.hubConnection. SignalR.connect(). onReconnected")
+                                                    getLocals)
                                             .onClose(fun ex ->
+                                                let getLocals () = $"ex={ex} {getLocals ()}"
+
                                                 Logger.logDebug
                                                     (fun () ->
-                                                        $"Selectors.Hub.hubConnection. SignalR.connect(). onClose ex={ex}"))
+                                                        $"{nameof FsStore} | Selectors.Hub.hubConnection. SignalR.connect(). onClose")
+                                                    getLocals)
                                             .configureLogging(LogLevel.Debug)
                                             .onMessage (fun msg ->
                                                 match msg with
                                                 | Sync.Response.ConnectResult ->
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            "Selectors.Hub.hubConnection. Sync.Response.ConnectResult")
+                                                            $"{nameof FsStore} | Selectors.Hub.hubConnection. Sync.Response.ConnectResult")
+                                                        getLocals
                                                 | Sync.Response.SetResult result ->
+                                                    let getLocals () = $"result={result} {getLocals ()}"
+
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            $"Selectors.Hub.hubConnection. Sync.Response.SetResult result={result}")
+                                                            $"{nameof FsStore} | Selectors.Hub.hubConnection. Sync.Response.SetResult")
+                                                        getLocals
                                                 | Sync.Response.GetResult value ->
+                                                    let getLocals () = $"value={value} {getLocals ()}"
+
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            $"Selectors.Hub.hubConnection. Sync.Response.GetResult value={value}")
+                                                            $"{nameof FsStore} | Selectors.Hub.hubConnection. Sync.Response.GetResult")
+                                                        getLocals
                                                 | Sync.Response.GetStream (alias, atomPath, value) ->
                                                     let getLocals () =
                                                         $"alias={alias} atomPath={atomPath} value={value} {getLocals ()}"
 
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            $"Selectors.Hub.hubConnection / GetStream {getLocals ()}")
+                                                            $"{nameof FsStore} | Selectors.Hub.hubConnection / GetStream")
+                                                        getLocals
 
                                                     let storeAtomPath =
                                                         match atomPath |> String.split "/" |> Array.toList with
@@ -368,7 +420,9 @@ module SelectorsMagic =
                                                                     let name = tail |> List.last
                                                                     let keys = tail |> List.take (tail.Length - 1)
                                                                     Some collection, keys, name
-                                                                | _ -> failwith $"invalid file event {getLocals ()}"
+                                                                | _ ->
+                                                                    failwith
+                                                                        $"{nameof FsStore} | Selectors.Hub.hubConnection / GetStream / invalid file event {getLocals ()}"
 
                                                             match collection with
                                                             | Some collection ->
@@ -394,35 +448,54 @@ module SelectorsMagic =
                                                             |> Map.tryFindDictionary ((Alias alias, storeAtomPath))
                                                             with
                                                         | Some fn ->
+                                                            let getLocals () = $"msg={msg} {getLocals ()}"
+
                                                             Logger.logDebug
                                                                 (fun () ->
-                                                                    $"Selectors.Hub.hubConnection. Selectors.hub onMsg msg={msg}. triggering ")
+                                                                    $"{nameof FsStore} | Selectors.Hub.hubConnection. Selectors.hub onMsg. triggering ")
+                                                                getLocals
 
                                                             fn value |> Promise.start
                                                         | None ->
+                                                            let getLocals () = $"msg={msg} {getLocals ()}"
+
                                                             Logger.logDebug
                                                                 (fun () ->
-                                                                    $"Selectors.Hub.hubConnection. onMsg msg={msg}. skipping. not in map ")
+                                                                    $"{nameof FsStore} | Selectors.Hub.hubConnection. onMsg. skipping. not in map")
+                                                                getLocals
                                                     | None ->
+                                                        let getLocals () =
+                                                            $"storeAtomPath={storeAtomPath} msg={msg} {getLocals ()}"
+
                                                         Logger.logDebug
                                                             (fun () ->
-                                                                $"Selectors.Hub.hubConnection. onMsg msg={msg}. storeAtomPath={storeAtomPath} skipping. invalid atom ")
+                                                                $"{nameof FsStore} | Selectors.Hub.hubConnection. onMsg. skipping. invalid atom ")
+                                                            getLocals
 
                                                 | Sync.Response.FilterResult keys ->
+                                                    let getLocals () = $"keys={keys} {getLocals ()}"
+
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            $"Selectors.Hub.hubConnection. Sync.Response.FilterResult keys={keys}")
+                                                            $"{nameof FsStore} | Selectors.Hub.hubConnection. Sync.Response.FilterResult")
+                                                        getLocals
                                                 | Sync.Response.FilterStream (alias, atomPath, keys) ->
+                                                    let getLocals () =
+                                                        $"alias={alias} atomPath={atomPath} keys={keys} {getLocals ()}"
+
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            $"Selectors.Hub.hubConnection. Sync.Response.FilterStream alias={alias} atomPath={atomPath} keys={keys}")
+                                                            $"{nameof FsStore} | Selectors.Hub.hubConnection. Sync.Response.FilterStream")
+                                                        getLocals
 
                                                 match msg with
                                                 | Sync.Response.FilterStream (alias, atomPath, keys) ->
                                                     let storeRoot, collection =
                                                         match atomPath |> String.split "/" |> Array.toList with
                                                         | storeRoot :: collection :: _ -> storeRoot, collection
-                                                        | _ -> failwith $"invalid atom path {getLocals ()}"
+                                                        | _ ->
+                                                            failwith
+                                                                $"{nameof FsStore} | Selectors.Hub.hubConnection / FilterStream / invalid atom path {getLocals ()}"
 
                                                     match
                                                         hubKeySubscriptionMap
@@ -430,23 +503,36 @@ module SelectorsMagic =
                                                             ((Alias alias, StoreRoot storeRoot, Collection collection))
                                                         with
                                                     | Some fn ->
+                                                        let getLocals () = $"msg={msg} {getLocals ()}"
+
                                                         Logger.logDebug
                                                             (fun () ->
-                                                                $"Selectors.Hub.hubConnection. Selectors.hub. FilterStream. onMsg msg={msg}. triggering ")
+                                                                $"{nameof FsStore} | Selectors.Hub.hubConnection. Selectors.hub. FilterStream. onMsg. triggering")
+                                                            getLocals
 
                                                         fn keys
                                                     | None ->
+                                                        let getLocals () = $"msg={msg} {getLocals ()}"
+
                                                         Logger.logDebug
                                                             (fun () ->
-                                                                $"Selectors.Hub.hubConnection. onMsg msg={msg}. FilterStream. skipping. not in map ")
+                                                                $"{nameof FsStore} | Selectors.Hub.hubConnection. onMsg. FilterStream. skipping. not in map")
+                                                            getLocals
                                                 | _ ->
+                                                    let getLocals () = $"msg={msg} {getLocals ()}"
+
                                                     Logger.logDebug
                                                         (fun () ->
-                                                            $"Selectors.Hub.hubConnection.  onMsg msg={msg}. FilterStream. skipping. not handled ")))
+                                                            $"{nameof FsStore} | Selectors.Hub.hubConnection. onMsg. FilterStream. skipping. not handled")
+                                                        getLocals))
+
+                            let getLocals () =
+                                $"alias={alias} hubUrl={hubUrl} {getLocals ()}"
 
                             Logger.logDebug
                                 (fun () ->
-                                    $"Selectors.Hub.hubConnection. end. alias={alias} hubUrl={hubUrl}. starting connection...")
+                                    $"{nameof FsStore} | Selectors.Hub.hubConnection. end. starting connection...")
+                                getLocals
 
                             connection.startNow ()
                             Some connection
@@ -463,9 +549,10 @@ module SelectorsMagic =
 
                         match hubConnection with
                         | Some hubConnection ->
-                            logger.Debug
-                                (fun () ->
-                                    $"Selectors.Hub.hub. _hubTrigger={_hubTrigger} hubConnection.connectionId={hubConnection.connectionId}")
+                            let getLocals () =
+                                $"_hubTrigger={_hubTrigger} hubConnection.connectionId={hubConnection.connectionId} {getLocals ()}"
+
+                            logger.Debug (fun () -> $"{nameof FsStore} | Selectors.Hub.hub.") getLocals
 
                             Some hubConnection
                         //                        match Atom.value getter atomAccessors with
@@ -483,7 +570,9 @@ module SelectorsMagic =
 
                         let getLocals () = $"alias={alias} hubUrl={hubUrl}"
 
-                        Profiling.addTimestamp (fun () -> $"Selectors.Hub.adapterOptions get() {getLocals ()}")
+                        Profiling.addTimestamp
+                            (fun () -> $"{nameof FsStore} | Selectors.Hub.adapterOptions get()")
+                            getLocals
 
                         match alias, hubUrl with
                         | Some alias, Some (String.Valid hubUrl) -> Some (Atom.AdapterOptions.Hub (hubUrl, alias))

@@ -1,5 +1,6 @@
 namespace FsStore.State.Selectors
 
+open FsCore
 open FsCore.BaseModel
 open FsStore.State
 open FsJs
@@ -15,12 +16,7 @@ module rec File =
         Atom.Primitives.atomFamily
             (fun (fileId: FileId) ->
                 Atom.create
-                    (ValueAtomPath (
-                        FsStore.storeRoot,
-                        Atoms.File.collection,
-                        Atoms.File.formatFileId fileId,
-                        atomName
-                    ))
+                    (ValueAtomPath (FsStore.storeRoot, Atoms.File.collection, Atoms.File.formatFileId fileId, atomName))
                     (AtomType.ReadSelector (fn fileId)))
 
     let rec hexString =
@@ -42,19 +38,17 @@ module rec File =
                         |> Atom.get getter
 
                     if chunks |> Array.exists (String.length >> (=) 0) then
-                        logger.Debug
-                            (fun () ->
-                                $"File.blob incomplete blob. skipping
-chunkCount={chunkCount} chunks.Length={chunks.Length}
-chunks.[0].Length={if chunks.Length = 0 then unbox null else chunks.[0].Length} ")
+                        let getLocals () =
+                            $"chunkCount={chunkCount} chunks.Length={chunks.Length} chunks.[0].Length={if chunks.Length = 0 then unbox null else chunks.[0].Length} {getLocals ()}"
+
+                        logger.Debug (fun () -> "File.blob incomplete blob. skipping") getLocals
 
                         None
                     else
-                        logger.Debug
-                            (fun () ->
-                                $"File.blob chunkCount={chunkCount}
-chunks.Length={chunks.Length}
-chunks.[0].Length={if chunks.Length = 0 then unbox null else chunks.[0].Length} ")
+                        let getLocals () =
+                            $"chunkCount={chunkCount} chunks.Length={chunks.Length} chunks.[0].Length={if chunks.Length = 0 then unbox null else chunks.[0].Length} {getLocals ()}"
+
+                        logger.Debug (fun () -> "File.blob") getLocals
 
                         match chunks |> String.concat "" with
                         | "" -> None
@@ -92,15 +86,15 @@ chunks.[0].Length={if chunks.Length = 0 then unbox null else chunks.[0].Length} 
 
                     let progress = 100 / chunkCount * completedChunkCount
 
-                    Profiling.addTimestamp
-                        (fun () ->
-                            $"File.progress
-                                                size(bytes)={chunkLengthArray |> Array.sum}
-                                                size(kb)={(chunkLengthArray |> Array.sum) / 1024}
-                                                chunkCount={chunkCount}
-                                                completedChunkCount={completedChunkCount}
-                                                progress={progress} ")
+                    let getLocals () =
+                        $"
+size(bytes)={chunkLengthArray |> Array.sum}
+size(kb)={(chunkLengthArray |> Array.sum) / 1024}
+chunkCount={chunkCount}
+completedChunkCount={completedChunkCount}
+progress={progress} {getLocals ()}"
 
+                    Profiling.addTimestamp (fun () -> "File.progress") getLocals
                     progress)
 
     let rec blob =

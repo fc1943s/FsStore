@@ -281,8 +281,12 @@ module Gun =
                             | None -> return None
                         with
                         | ex ->
+                            let getLocals () =
+                                $"data={Json.encodeWithNull data} ex={ex} {getLocals ()}"
+
                             Logger.logError
-                                (fun () -> $"userDecode decrypt exception. data={Json.encodeWithNull data} ex={ex}")
+                                (fun () -> $"{nameof FsStore} | Gun.userDecode / verify or decrypt exception")
+                                getLocals
 
                             return None
                     | _ -> return None
@@ -292,9 +296,10 @@ module Gun =
                 match decrypted with
                 | Some (DecryptedValue decrypted) -> decrypted |> Json.decode<'TValue option>
                 | None ->
-                    Logger.logDebug
-                        (fun () -> $"userDecode decrypt empty. decrypted={decrypted} data={Json.encodeWithNull data}")
+                    let getLocals () =
+                        $"decrypted={decrypted} data={Json.encodeWithNull data} {getLocals ()}"
 
+                    Logger.logDebug (fun () -> $"{nameof FsStore} | Gun.userDecode / decrypted is empty") getLocals
                     JS.undefined
 
             return decoded
@@ -311,15 +316,15 @@ module Gun =
                 let! encrypted = sea.encrypt (DecryptedValue json) keys
                 let! signed = sea.sign encrypted keys
 
-                Logger.logTrace
-                    (fun () -> $"userEncode. value={value} json={json} encrypted={encrypted} signed={signed}")
+                let getLocals () =
+                    $"value={value} json={json} encrypted={encrypted} signed={signed} {getLocals ()}"
 
+                Logger.logTrace (fun () -> $"{nameof FsStore} | Gun.userEncode") getLocals
                 return signed
             with
             | ex ->
-                Logger.logError
-                    (fun () -> $"userEncode exception. raising to caller inside promise... ex={ex} value={value}")
-
+                let getLocals () = $"ex={ex} value={value} {getLocals ()}"
+                Logger.logError (fun () -> $"{nameof FsStore} | Gun.userEncode / raising exception to caller from promise...") getLocals
                 return raise ex
         }
 
@@ -339,8 +344,10 @@ module Gun =
                             res true
                         else
 
-                            Logger.logError
-                                (fun () -> $"Gun.put error. newValue={newValue} ack={JS.JSON.stringify ack} ")
+                            let getLocals () =
+                                $"newValue={newValue} ack={JS.JSON.stringify ack} {getLocals ()}"
+
+                            Logger.logError (fun () -> $"{nameof FsStore} | Gun.put / invalid ack") getLocals
 
                             res false)
                 |> ignore)
@@ -385,9 +392,10 @@ module Gun =
 
                             let! putResult = put node (GunValue.NodeReference key)
 
-                            Logger.logDebug
-                                (fun () ->
-                                    $"putPublicHash completed. putResult={putResult} key={key} pub={pub} hash={hash}")
+                            let getLocals () =
+                                $"putResult={putResult} key={key} pub={pub} hash={hash} {getLocals ()}"
+
+                            Logger.logDebug (fun () -> $"{nameof FsStore} | Gun.putPublicHash / valueSet.on()") getLocals
                          }))
             | _ -> eprintfn $"invalid key. user.is={JS.JSON.stringify user.is}"
         }
@@ -419,26 +427,32 @@ module Gun =
                                             printfn $"hashData result={result} key={_key}"
                                             res (result |> unbox<EncryptedSignedValue>)
                                             ())
-                                | _ -> Logger.logDebug (fun () -> "radQuery gunValue is not nodereference"))
-                    | _ -> Logger.logDebug (fun () -> "radQuery. no pub found")
+                                | _ ->
+                                    Logger.logDebug
+                                        (fun () -> $"{nameof FsStore} | Gun.aliasRadQuery / radQuery gunValue is not nodereference")
+                                        getLocals)
+                    | _ -> Logger.logDebug (fun () -> $"{nameof FsStore} | Gun.aliasRadQuery / no pub found") getLocals
                 with
                 | ex ->
-                    printfn "radQuery error: {ex}"
+                    let getLocals () = $"ex={ex} {getLocals ()}"
+                    Logger.logError (fun () -> $"{nameof FsStore} | Gun.aliasRadQuery / no pub found") getLocals
                     err ex)
 
     let inline subscribe (gun: IGunChainReference) fn =
         gun.on
             (fun data key ->
                 promise {
-                    Profiling.addTimestamp
-                        (fun () -> $"($$) ---- Gun.subscribe.on() data. batching... key={key} data={data} ")
-
+                    let getLocals () = $"key={key} data={data} {getLocals ()}"
+                    Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Gun.subscribe / on() / $$") getLocals
                     fn (data |> unbox<EncryptedSignedValue>, key)
                 })
 
         Object.newDisposable
             (fun () ->
-                Profiling.addTimestamp (fun () -> $"($$) ---- Gun.subscribe.on() data. Dispose promise observable. ")
+                Profiling.addTimestamp
+                    (fun () -> $"{nameof FsStore} | Gun.subscribe / Dispose() / calling gun.off() / $$")
+                    getLocals
+
                 gun.off () |> ignore)
         |> Promise.lift
 
@@ -447,7 +461,10 @@ module Gun =
         (fn: TicksGuid * EncryptedSignedValue * AtomKeyFragment -> JS.Promise<unit>)
         (ticks: TicksGuid, data: EncryptedSignedValue, AtomKeyFragment key)
         =
-        Profiling.addTimestamp (fun () -> $"($$) ---- #B key={key} subscriptionTicks={ticks} data={data} ")
+        let getLocals () =
+            $"key={key} subscriptionTicks={ticks} data={data} {getLocals ()}"
+
+        Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Gun.batchData / $$ #B") getLocals
 
         Batcher.batch (
             Batcher.BatchType.Data (
@@ -464,15 +481,20 @@ module Gun =
 
     let inline batchSubscribe gunAtomNode ticks trigger =
         let inline fn ticks =
-            Profiling.addTimestamp (fun () -> $"($$) ---- #1.1 ticks={ticks} gunAtomNode={gunAtomNode} ")
+            let getLocals () = $"ticks={ticks} {getLocals ()}"
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Gun.batchSubscribe / $$ 1.1") getLocals
 
             subscribe
                 gunAtomNode
                 (fun (value, key) ->
-                    Profiling.addTimestamp (fun () -> $"($$) ---- #A key={key} ticks={ticks} value={value} ")
+                    let getLocals () =
+                        $"value={value} key={key} {getLocals ()}"
+
+                    Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Gun.batchSubscribe / $$ #A") getLocals
                     batchData trigger (ticks, value, key))
 
-        Profiling.addTimestamp (fun () -> $"($$) ---- #1 ticks={ticks} ")
+        let getLocals () = $"ticks={ticks} {getLocals ()}"
+        Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Gun.batchSubscribe / $$ 1") getLocals
         Batcher.batch (Batcher.BatchType.Subscribe (ticks, fn))
 
     let inline batchSet gunAtomNode (ticks, trigger) =
@@ -485,6 +507,8 @@ module Gun =
         promise {
             let! stream = hub.streamFrom action |> Async.StartAsPromise
 
+            let getLocals () = $"action={action} {getLocals ()}"
+
             let subscription =
                 stream.subscribe
                     {
@@ -492,13 +516,12 @@ module Gun =
                         complete =
                             fun () ->
                                 Logger.logDebug
-                                    (fun () -> $"[hubSubscribe.complete() HUB stream subscription] action={action} ")
+                                    (fun () -> $"{nameof FsStore} | Gun.hubSubscribe / complete()")
+                                    getLocals
                         error =
                             fun err ->
-                                Logger.logError
-                                    (fun () ->
-                                        $"[hubSubscribe.error() HUB stream subscription] action={action} err={err}")
-
+                                let getLocals () = $"err={err} {getLocals ()}"
+                                Logger.logError (fun () -> $"{nameof FsStore} | Gun.hubSubscribe / error()") getLocals
                                 onError err
                     }
 

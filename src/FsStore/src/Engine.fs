@@ -58,7 +58,7 @@ module Engine =
                 $"commands={commands} newState={newState} processedMessages={processedMessages} {getLocals ()}"
 
             let addTimestamp fn getLocals =
-                Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.consumeCommands {fn ()} | {getLocals ()}")
+                Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.consumeCommands {fn ()}") getLocals
 
             addTimestamp (fun () -> "[ ](_1)") getLocals
 
@@ -93,10 +93,10 @@ module Engine =
         let mutable mounted = false
 
         let getLocals () =
-            $" | atom={atom} mounted={mounted} lastState.IsSome={lastState.IsSome}  {getLocals ()}"
+            $"atom={atom} mounted={mounted} lastState.IsSome={lastState.IsSome} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithState {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithState {fn ()}") getLocals
 
         addTimestamp (fun () -> "[ constructor ](g1)") getLocals
 
@@ -211,8 +211,7 @@ module Engine =
             $"interval={interval} defaultValue={defaultValue} lastValue={lastValue} timeout={intervalHandle}  {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithInterval {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.wrapAtomWithInterval {fn ()}") getLocals
 
         let cache = Atom.Primitives.atom defaultValue
 
@@ -282,7 +281,7 @@ module Engine =
         let typeMetadata = typeMetadataMap.[atomType]
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchPutFromUi {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchPutFromUi {fn ()}") getLocals
 
         batch (
             BatchType.Set (
@@ -373,7 +372,7 @@ module Engine =
             $"keysBatch={keysBatch} newKeys={newKeys} lastKeySet={lastKeySet} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKeyResult {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKeyResult {fn ()}") getLocals
 
         addTimestamp (fun () -> "[ ] ") getLocals
 
@@ -385,7 +384,7 @@ module Engine =
             $"atomType={atomType} atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKey {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKey {fn ()}") getLocals
 
         addTimestamp (fun () -> "[ body ]") getLocals
 
@@ -398,7 +397,7 @@ module Engine =
             $"atomType={atomType} kind={kind} alias={alias} storeRoot={storeRoot} collection={collection} fromUi={fromUi} ticks={ticks} value={value} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKeysAtom {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.batchKeysAtom {fn ()}") getLocals
 
         addTimestamp (fun () -> "[ body ]") getLocals
 
@@ -425,11 +424,12 @@ module Engine =
 
     let inline newHashedDisposable (ticks: TicksGuid) =
         promise {
-            Logger.logDebug (fun () -> $"BaseStore.newHashedDisposable constructor ticks={ticks}")
+            let getLocals () = $"ticks={ticks} {getLocals ()}"
+            Logger.logDebug (fun () -> $"{nameof FsStore} | Engine.newHashedDisposable / constructor") getLocals
 
             return
                 Object.newDisposable
-                    (fun () -> Logger.logDebug (fun () -> $"BaseStore.newHashedDisposable disposing... ticks={ticks}"))
+                    (fun () -> Logger.logDebug (fun () -> $"{nameof FsStore} | BaseStore.newHashedDisposable / Dispose()") getLocals)
         }
 
     let inline getAdapterSubscription atomType adapterType =
@@ -442,8 +442,7 @@ module Engine =
             $"atomType={atomType} adapterType={adapterType} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.getAdapterSubscription {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.getAdapterSubscription {fn ()}") getLocals
 
         let mount, unmount =
             match adapterType with
@@ -508,11 +507,13 @@ module Engine =
                                                                 getLocals
                                                     with
                                                     | ex ->
+                                                        let getLocals () =
+                                                            $"ex={ex} subscriptionTicks={subscriptionTicks} {getLocals ()}"
+
                                                         Logger.logError
                                                             (fun () ->
-                                                                $"Engine.getAtomAdapter. gun subscribe data error. ex={ex.Message} subscriptionTicks={subscriptionTicks} {getLocals ()}")
-
-                                                        Logger.consoleError [| ex |]
+                                                                $"{nameof FsStore} | Engine.getAtomAdapter. gun subscribe data error")
+                                                            getLocals
                                                 })
 
                                         newHashedDisposable subscriptionTicks
@@ -607,7 +608,7 @@ module Engine =
                                 Some (subscriptionId, subscription, setAdapterValues)
                             | None -> None
 
-                        | _ -> failwith $"invalid gun atom node {getLocals ()}"
+                        | _ -> failwith $"{nameof FsStore} | invalid gun atom node {getLocals ()}"
                     | _ -> None),
                 (fun storeAtomPath getter (_setter: Setter<obj>) adapterOptions ->
                     let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
@@ -699,21 +700,30 @@ module Engine =
 
                                                             match msg with
                                                             | Sync.Response.GetResult result ->
+                                                                let getLocals () =
+                                                                    $"msg={msg} atomPath={atomPath} {getLocals ()}"
+
                                                                 Logger.logTrace
                                                                     (fun () ->
-                                                                        $"Store.syncSubscribe. Sync.Response.GetResult msg={msg} atomPath={atomPath} {getLocals ()} ")
+                                                                        $"{nameof FsStore} | Store.syncSubscribe. Sync.Response.GetResult")
+                                                                    getLocals
 
                                                                 do! handle result
                                                             | _ ->
+                                                                let getLocals () = $"msg={msg} {getLocals ()}"
+
                                                                 Logger.logTrace
                                                                     (fun () ->
-                                                                        $"Store.syncSubscribe. wrapper.next() HUB stream subscribe] skipped. msg={msg} {getLocals ()} ")
+                                                                        $"{nameof FsStore} | Store.syncSubscribe. wrapper.next() HUB stream subscribe] skipped")
+                                                                    getLocals
                                                         }
                                                         |> Promise.start)
                                                     (fun ex ->
+                                                        let getLocals () = $"ex={ex} {getLocals ()}"
+
                                                         Logger.logError
-                                                            (fun () ->
-                                                                $"Store.syncSubscribe. onError... ex={ex} {getLocals ()} ")
+                                                            (fun () -> $"{nameof FsStore} | Store.syncSubscribe. onError...")
+                                                            getLocals
 
                                                         Selectors.Hub.hubAtomSubscriptionMap.Remove (
                                                             (alias, storeAtomPath)
@@ -776,12 +786,12 @@ module Engine =
                                                                 Transaction (NotFromUi, lastTicks, lastValue)
                                                             )
                                                     | response ->
-                                                        Logger.logError
-                                                            (fun () -> $"Store.putFromUi. #90592 response={response}")
+                                                        let getLocals () = $"response={response} {getLocals ()}"
+                                                        Logger.logError (fun () -> $"{nameof FsStore} | Store.putFromUi. #90592") getLocals
                                                 with
                                                 | ex ->
-                                                    Logger.logError
-                                                        (fun () -> $"Store.putFromUi. hub.set, error={ex.Message}")
+                                                    let getLocals () = $"ex={ex} {getLocals ()}"
+                                                    Logger.logError (fun () -> $"{nameof FsStore} | Store.putFromUi. hub.set") getLocals
                                         }
                                         |> Promise.start
 
@@ -858,18 +868,20 @@ module Engine =
                                                 match response with
                                                 | Sync.Response.FilterResult keys -> handle keys
                                                 | response ->
+                                                    let getLocals () = $"response={response} {getLocals ()}"
+
                                                     Logger.logError
                                                         (fun () ->
-                                                            $"Store.selectAtomSyncKeys Gun.batchHubSubscribe invalid response={response}"))
+                                                            $"{nameof FsStore} | Store.selectAtomSyncKeys Gun.batchHubSubscribe invalid")
+                                                        getLocals)
                                             (fun ex ->
                                                 let getLocals () = $"ex={ex} {getLocals ()}"
+                                                Logger.logError (fun () -> $"{nameof FsStore} | hub.map().on() error") getLocals
 
                                                 Selectors.Hub.hubKeySubscriptionMap.Remove (
                                                     (alias, storeRoot, collection)
                                                 )
-                                                |> ignore
-
-                                                Logger.logError (fun () -> $"hub.map().on() error {getLocals ()}"))
+                                                |> ignore)
 
                                     let inline setAdapterValue
                                         (Transaction (fromUi, lastTicks, AtomValueRef lastValue))
@@ -878,7 +890,7 @@ module Engine =
                                             $"fromUi={fromUi} lastTicks={lastTicks} lastValue={lastValue} {getLocals ()}"
 
 
-                                        failwith $"invalid adapter assign {getLocals ()}"
+                                        failwith $"{nameof FsStore} | invalid adapter assign {getLocals ()}"
 
                                     //                                        addTimestamp
 //                                            (fun () ->
@@ -912,7 +924,7 @@ module Engine =
                     match adapterOptions with
                     | Atom.AdapterOptions.Hub (_alias, _hubUrl) ->
                         //                let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
-                        Profiling.addTimestamp (fun () -> $"+08B <==== getAtomAdapter hub unmount  {getLocals ()}  ")
+                        addTimestamp (fun () -> $"+08B <==== getAtomAdapter hub unmount") getLocals
                     | _ -> ()
 
                     )
@@ -981,8 +993,7 @@ module Engine =
             $"storeAtomPath={storeAtomPath} alias={alias} adapterType={adapterType} atom={atom} setAdapterValue.IsSome={setAdapterValue.IsSome}  {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.createAtomWithAdapter {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.createAtomWithAdapter {fn ()}") getLocals
 
         addTimestamp (fun () -> "[ constructor ](f1)") getLocals
 
@@ -1021,7 +1032,7 @@ module Engine =
                                 addTimestamp (fun () -> "[ wrapper.set() ](f3-1) skipping new adapter assign") getLocals
 
                             Some (Transaction (newFromUi, newTicks, newValue)))
-                | None -> failwith $"invalid newValue {getLocals ()}")
+                | None -> failwith $"{nameof FsStore} | invalid newValue {getLocals ()}")
         |> wrapAtomWithState
             (fun getter ->
                 let adapterOptions = getAdapterOptions getter adapterType
@@ -1115,7 +1126,7 @@ module Engine =
             $"atomType={atomType} alias={alias} atomPath={atomPath} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.getAdapterValues {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.getAdapterValues {fn ()}") getLocals
 
         Reflection.unionCases<Atom.AdapterType>
         |> List.choose
@@ -1171,7 +1182,7 @@ module Engine =
             $"atomType={atomType} atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.subscribeCollection {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.subscribeCollection {fn ()}") getLocals
 
         if typeMetadataMap.ContainsKey atomType |> not then
             collectionTypeMap.[(storeRoot, collection)] <- collectionAtomType
@@ -1268,8 +1279,7 @@ module Engine =
                     $"groupRef={groupRef} alias={alias} storeAtomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
                 let addTimestamp fn getLocals =
-                    Profiling.addTimestamp
-                        (fun () -> $"{nameof FsStore} | Engine.groupMapFamily {fn ()} | {getLocals ()}")
+                    Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.groupMapFamily {fn ()}") getLocals
 
                 addTimestamp (fun () -> "[ constructor ](e3)") getLocals
                 [])
@@ -1284,8 +1294,7 @@ module Engine =
                     $"groupRef={groupRef} alias={alias} storeAtomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
                 let addTimestamp fn getLocals =
-                    Profiling.addTimestamp
-                        (fun () -> $"{nameof FsStore} | Engine.userAtomFamily {fn ()} | {getLocals ()}")
+                    Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.userAtomFamily {fn ()}") getLocals
 
                 addTimestamp (fun () -> "[ readSelectorFamily.read() ](e2)") getLocals
 
@@ -1302,7 +1311,7 @@ module Engine =
             $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} defaultGroup={defaultGroup} defaultValue={defaultValue} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.createAtomWithGroup {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.createAtomWithGroup {fn ()}") getLocals
 
         addTimestamp (fun () -> "[ constructor ](d1)") getLocals
 
@@ -1374,7 +1383,7 @@ module Engine =
             let getLocals () = $"atom={atom} {getLocals ()}"
 
             let addTimestamp fn getLocals =
-                Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.sync {fn ()} | {getLocals ()}")
+                Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.sync {fn ()}") getLocals
 
             let localAdapters = Atom.get getter atom
 
@@ -1488,8 +1497,7 @@ module Engine =
             $"atomType={atomType} atomPath={atomPath} defaultValue={defaultValue} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp
-                (fun () -> $"{nameof FsStore} | Engine.createAtomWithSubscription {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.createAtomWithSubscription {fn ()}") getLocals
 
         let localAdaptersAtom =
             createAtomWithGroup storeAtomPath (Atom.AdapterType.Memory, (NotFromUi, defaultValue))
@@ -1644,7 +1652,7 @@ module Engine =
             $"atom1={atom1} atom2={atom2} lastValue={lastValue} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.bindAtom {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Engine.bindAtom {fn ()}") getLocals
 
         addTimestamp (fun () -> "[ constructor ](b1)") getLocals
 
@@ -1734,8 +1742,8 @@ module Engine =
             | Some gunAtomNode ->
                 let! putResult = put gunAtomNode (unbox null)
                 let getLocals () = $"putResult={putResult} {getLocals ()}"
-                Logger.logDebug (fun () -> $"Engine.delete. {getLocals ()}")
-            | None -> failwith "Engine.delete. invalid gun atom node"
+                Logger.logDebug (fun () -> $"{nameof FsStore} | Engine.delete") getLocals
+            | None -> failwith $"{nameof FsStore} | Engine.delete. invalid gun atom node"
 
             match alias with
             | Some (Alias alias) ->
@@ -1743,6 +1751,6 @@ module Engine =
 
                 match hub with
                 | Some hub -> do! hub.sendAsPromise (Sync.Request.Set (alias, atomPath |> AtomPath.Value, null))
-                | _ -> Logger.logDebug (fun () -> "Engine.delete. invalid hub. skipping")
-            | _ -> failwith "Engine.delete. invalid alias"
+                | _ -> Logger.logDebug (fun () -> $"{nameof FsStore} | Engine.delete. invalid hub. skipping") getLocals
+            | _ -> failwith $"{nameof FsStore} | Engine.delete. invalid alias"
         }

@@ -1,17 +1,15 @@
 namespace FsStore.Hooks
 
+open FsCore
 open FsJs
 open FsStore
 open FsStore.Model
 open FsStore.Bindings
-open FsStore.State
 
 
 module Messaging =
     let inline appUpdate getter setter state command =
         promise {
-            let logger = Atom.get getter Selectors.logger
-
             let! result =
                 promise {
                     match command with
@@ -41,15 +39,15 @@ module Messaging =
                             ]
                 }
 
-            Profiling.addCount (fun () -> $"{nameof FsStore} | Messaging.appUpdate. command={command} result={result}")
-            logger.Trace (fun () -> $"Messaging.appUpdate. command={command} result={result}")
+            let getLocals () =
+                $"command={command} result={result} {getLocals ()}"
+
+            Profiling.addCount (fun () -> $"{nameof FsStore} | Messaging.appUpdate") getLocals
             return result
         }
 
-    let inline atomUpdate getter _setter state command =
+    let inline atomUpdate _getter _setter state command =
         promise {
-            let logger = Atom.get getter Selectors.logger
-
             let! result =
                 promise {
                     match command with
@@ -58,7 +56,9 @@ module Messaging =
                     | AtomCommand.Unsubscribe -> return state, []
                 }
 
-            Profiling.addCount (fun () -> $"{nameof FsStore} | Messaging.atomUpdate. command={command} result={result}")
-            logger.Trace (fun () -> $"Messaging.atomUpdate. command={command} result={result}")
+            let getLocals () =
+                $"command={command} result={result} {getLocals ()}"
+
+            Profiling.addCount (fun () -> $"{nameof FsStore} | Messaging.atomUpdate") getLocals
             return result
         }

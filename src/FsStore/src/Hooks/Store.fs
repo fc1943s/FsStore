@@ -68,13 +68,10 @@ module Store =
                     | _, None -> currentValue |> Option.defaultValue (unbox null)
                     | Some (InputScope.Temp (_, jsonDecode)), Some tempValue ->
                         try
-                            logger.Debug
-                                (fun () ->
-                                    $"useTempAtom
-                                    currentValue={currentValue}
-                                    atom={atom}
-                                    tempValue={tempValue}")
+                            let getLocals () =
+                                $"currentValue={currentValue} atom={atom} tempValue={tempValue} {getLocals ()}"
 
+                            logger.Debug (fun () -> "useTempAtom ") getLocals
                             jsonDecode tempValue
                         with
                         | ex ->

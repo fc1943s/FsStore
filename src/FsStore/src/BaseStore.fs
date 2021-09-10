@@ -95,4 +95,3 @@ module BaseStore =
             member this.SyncPaused
                 with get () = syncPaused
                 and set value = syncPaused <- value
-

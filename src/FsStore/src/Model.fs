@@ -136,7 +136,7 @@ module Model =
 
     type AtomPath with
         static member inline Value (AtomPath atomPath) = atomPath
-        static member inline AtomKey _atomPath = AtomPath (failwith "invalid")
+        static member inline AtomKey _atomPath = AtomPath (failwith $"{nameof FsStore} | invalid")
 
     type AppEngineState with
         static member inline Default = { NotificationQueue = [] }

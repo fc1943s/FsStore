@@ -25,8 +25,10 @@ module Hydrate =
         match hexString, chunkCount with
         | String.Invalid, _
         | _, 0 ->
-            Logger.logDebug
-                (fun () -> $"hydrateFile. invalid hexString.Length={hexString.Length} chunkCount={chunkCount} ")
+            let getLocals () =
+                $"hexString.Length={hexString.Length} chunkCount={chunkCount} {getLocals ()}"
+
+            Logger.logError (fun () -> $"{nameof FsStore} | Hydrate.hydrateFile. invalid") getLocals
 
             None
         | _ ->
@@ -38,14 +40,14 @@ module Hydrate =
                         unicodeAware = false
                     |}
 
-            Logger.logDebug
-                (fun () ->
-                    $"hydrateFile.
-            hexString.Length={hexString.Length}
-            chunkCount={chunkCount}
-            chunks.Length={chunks.Length}
-            chunks.[0].Length={if chunks.Length = 0 then unbox null else chunks.[0].Length}
-            ")
+            let getLocals () =
+                $"
+hexString.Length={hexString.Length}
+chunkCount={chunkCount}
+chunks.Length={chunks.Length}
+chunks.[0].Length={if chunks.Length = 0 then unbox null else chunks.[0].Length} {getLocals ()}"
+
+            Logger.logDebug (fun () -> $"{nameof FsStore} | Hydrate.hydrateFile") getLocals
 
             if chunks.Length = chunkCount then
                 let fileId = FileId.NewId ()

@@ -36,10 +36,5 @@ module rec Device =
         Atom.Primitives.atomFamily
             (fun (deviceId: DeviceId) ->
                 Atom.create
-                    (ValueAtomPath (
-                        FsStore.storeRoot,
-                        collection,
-                        formatDeviceId deviceId,
-                        AtomName (nameof appState)
-                    ))
+                    (ValueAtomPath (FsStore.storeRoot, collection, formatDeviceId deviceId, AtomName (nameof appState)))
                     (AtomType.Atom AppEngineState.Default))

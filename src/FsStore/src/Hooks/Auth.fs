@@ -1,5 +1,6 @@
 namespace FsStore.Hooks
 
+open FsCore
 open Fable.Extras
 open Fable.Core
 open Feliz
@@ -65,6 +66,7 @@ module Auth =
                 (fun getter setter () ->
                     Profiling.addTimestamp
                         (fun () -> $"{nameof FsStore} | Auth.Actions.logout. invoking gun.user().leave()")
+                        getLocals
 
                     let gunUser = Atom.get getter Selectors.Gun.gunUser
                     gunUser.leave ()
@@ -156,12 +158,18 @@ module Auth =
                                     let gun = Atom.get getter Selectors.Gun.gun
                                     let logger = Atom.get getter Selectors.logger
                                     let user = gun.user ()
-                                    logger.Debug (fun () -> $"Auth.useSignUp. gunUser.is={user.is |> Js.objectKeys}")
+
+                                    let getLocals () =
+                                        $"gunUser.is={user.is |> Js.objectKeys} {getLocals ()}"
+
+                                    logger.Debug (fun () -> "Auth.useSignUp") getLocals
 
                                     let! ack = Gun.createUser user (Gun.Alias alias) (Gun.Pass password)
 
-                                    logger.Debug
-                                        (fun () -> $"Auth.useSignUp. Gun.createUser signUpAck={JS.JSON.stringify ack}")
+                                    let getLocals () =
+                                        $"signUpAck={JS.JSON.stringify ack} {getLocals ()}"
+
+                                    logger.Debug (fun () -> "Auth.useSignUp. Gun.createUser") getLocals
 
                                     return!
                                         promise {
@@ -202,7 +210,7 @@ module Auth =
             (fun () ->
                 promise {
                     let logDebug fn getLocals =
-                        logger.Debug (fun () -> $"Auth.useGunAliasLoader {fn ()} {getLocals ()}")
+                        logger.Debug (fun () -> $"Auth.useGunAliasLoader {fn ()}") getLocals
 
                     match privateKeys with
                     | Some privateKeys ->

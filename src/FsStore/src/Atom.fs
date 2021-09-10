@@ -51,7 +51,7 @@ module Atom =
             $"debounce={debounce} atom={atom} mounted={mounted}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.addSubscription {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.addSubscription {fn ()}") getLocals
 
         addTimestamp (fun () -> "[ constructor ]") getLocals
 
@@ -108,7 +108,7 @@ module Atom =
             $"atom={atom} storeAtomPath={storeAtomPath |> StoreAtomPath.AtomPath} "
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.register {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.register {fn ()}") getLocals
 
         addTimestamp (fun () -> "[ body ]") getLocals
 
@@ -134,13 +134,13 @@ module Atom =
             $"atomReference={atomReference} result={result}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.query {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.query {fn ()}") getLocals
 
         addTimestamp (fun () -> "[ body ]") getLocals
 
         match result with
         | Some result -> result
-        | None -> failwith $"Atom.query error {getLocals ()} "
+        | None -> failwith $"{nameof FsStore} | Atom.query / result empty {getLocals ()}"
 
 
     module Primitives =
@@ -165,14 +165,18 @@ module Atom =
             atom
 
         let inline readSelector (read: Read<'A>) =
-            selector read (fun _ _ _ -> failwith "Atom.Primitives.readSelector is read only. (5)")
+            selector
+                read
+                (fun _ _ _ ->
+                    failwith $"{nameof FsStore} | Atom.Primitives.readSelector / set() / read only atom {getLocals ()}")
 
         let inline setSelector (write: Write<'A>) = selector (fun _ -> JS.undefined) write
 
         let inline atomFamily (defaultValueFn: 'TKey -> AtomConfig<'A>) =
             jotaiUtils.atomFamily
                 (fun key ->
-                    Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.Primitives.atomFamily key={key}")
+                    let getLocals () = $"key={key} {getLocals ()}"
+                    Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.Primitives.atomFamily") getLocals
                     defaultValueFn key)
                 (if false then JS.undefined else Object.compare)
 
@@ -180,7 +184,8 @@ module Atom =
             jotaiUtils.selectAtom
                 atom
                 (fun getter ->
-                    Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.Primitives.selectAtom atom={atom}")
+                    let getLocals () = $"atom={atom} {getLocals ()}"
+                    Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.Primitives.selectAtom") getLocals
                     selector getter)
                 (if true then JS.undefined else Object.compare)
 
@@ -191,7 +196,11 @@ module Atom =
             atomFamily (fun param -> selector (read param) (write param))
 
         let inline readSelectorFamily<'TKey, 'A> (read: 'TKey -> Read<'A>) : ('TKey -> AtomConfig<'A>) =
-            selectorFamily read (fun _ _ _ -> failwith "Atom.Primitives.readSelectorFamily is read only.")
+            selectorFamily
+                read
+                (fun _ _ _ ->
+                    failwith
+                        $"{nameof FsStore} | Atom.Primitives.readSelectorFamily / set() / read only atom {getLocals ()}")
 
         let inline asyncSelector<'A> (read: AsyncRead<'A>) (write: AsyncWrite<'A>) =
             jotai.atom (
@@ -205,7 +214,12 @@ module Atom =
         let inline asyncReadSelector<'A> (read: AsyncRead<'A>) =
             asyncSelector
                 read
-                (fun _ _ _newValue -> promise { failwith "Atom.Primitives.asyncReadSelector is read only." })
+                (fun _ _ _newValue ->
+                    promise {
+
+                        failwith
+                            $"{nameof FsStore} | Atom.Primitives.asyncReadSelector / set() / read only atom {getLocals ()}"
+                    })
 
         let inline asyncSelectorFamily<'TKey, 'A> (read: 'TKey -> AsyncRead<'A>) (write: 'TKey -> AsyncWrite<'A>) =
             atomFamily
@@ -217,7 +231,11 @@ module Atom =
         let inline asyncReadSelectorFamily<'TKey, 'A> (read: 'TKey -> AsyncRead<'A>) =
             asyncSelectorFamily
                 read
-                (fun _key _ _ _newValue -> promise { failwith "Atom.Primitives.asyncReadSelectorFamily is read only." })
+                (fun _key _ _ _newValue ->
+                    promise {
+                        failwith
+                            $"{nameof FsStore} | Atom.Primitives.asyncReadSelectorFamily / set() / read only atom {getLocals ()}"
+                    })
 
         let inline create atomType =
             match atomType with
@@ -233,7 +251,7 @@ module Atom =
             $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.selector {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.selector {fn ()}") getLocals
 
         let wrapper =
             Primitives.selector
@@ -244,31 +262,35 @@ module Atom =
                     result)
                 (fun getter setter newValue ->
                     let getLocals () = $"newValue={newValue} {getLocals ()}"
-
                     addTimestamp (fun () -> "[ write() ]") getLocals
                     write getter setter newValue)
 
         let getLocals () = $"wrapper={wrapper} {getLocals ()}"
-
         addTimestamp (fun () -> "[ constructor ]") getLocals
-
         wrapper |> register storeAtomPath
 
     let inline readSelector storeAtomPath read =
-        selector storeAtomPath read (fun _ _ _ -> failwith "Atom.readSelector is read only.")
+        selector
+            storeAtomPath
+            read
+            (fun _ _ _ -> failwith $"{nameof FsStore} | Atom.readSelector / set() / read only atom {getLocals ()}")
 
     let inline selectorFamily storeAtomPathFn read write =
         Primitives.atomFamily (fun param -> selector (storeAtomPathFn param) (read param) (write param))
 
     let inline readSelectorFamily storeAtomPathFn read =
-        selectorFamily storeAtomPathFn read (fun _ _ _ -> failwith "Atom.readSelectorFamily is read only.")
+        selectorFamily
+            storeAtomPathFn
+            read
+            (fun _ _ _ ->
+                failwith $"{nameof FsStore} | Atom.readSelectorFamily / set() / read only atom {getLocals ()}")
 
     let inline asyncSelector<'A> storeAtomPath (read: AsyncRead<'A>) (write: AsyncWrite<'A>) =
         let getLocals () =
             $"atomPath={storeAtomPath |> StoreAtomPath.AtomPath} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.asyncSelector {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.asyncSelector {fn ()}") getLocals
 
         Primitives.asyncSelector
             (fun getter ->
@@ -291,7 +313,9 @@ module Atom =
         asyncSelector
             storeAtomPath
             read
-            (fun _ _ _newValue -> promise { failwith "Atom.asyncReadSelector is read only." })
+            (fun _ _ _newValue ->
+                promise {
+                    failwith $"{nameof FsStore} | Atom.asyncReadSelector / set() / read only atom {getLocals ()}" })
 
     let inline asyncSelectorFamily<'TKey, 'A>
         storeAtomPathFn
@@ -309,7 +333,10 @@ module Atom =
         asyncSelectorFamily
             storeAtomPathFn
             read
-            (fun _key _ _ _newValue -> promise { failwith "Atom.asyncReadSelectorFamily is read only." })
+            (fun _key _ _ _newValue ->
+                promise {
+                    failwith $"{nameof FsStore} | Atom.asyncReadSelectorFamily / set() / read only atom {getLocals ()}"
+                })
 
     let inline atomFamilyAtom defaultValueFn =
         Primitives.atomFamily (fun param -> Primitives.atom (defaultValueFn param))
@@ -329,14 +356,11 @@ module Atom =
             $"atom={atom} atomPath={storeAtomPath |> Option.map StoreAtomPath.AtomPath} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.wrap {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.wrap {fn ()}") getLocals
 
         let rec wrapper = Primitives.selector read write
-
         let getLocals () = $"wrapper={wrapper} {getLocals ()}"
-
         addTimestamp (fun () -> "[ constructor ]") getLocals
-
         wrapper?init <- atom.init
 
         match storeAtomPath with
@@ -370,7 +394,7 @@ module Atom =
         let getLocals () = $"atom={atom} {getLocals ()}"
 
         let addTimestamp fn getLocals =
-            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.map {fn ()} | {getLocals ()}")
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.map {fn ()}") getLocals
 
         atom
         |> wrap
