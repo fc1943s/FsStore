@@ -12,4 +12,3 @@ nuget FsBeacon.Shared ~> 0.0 prerelease
 
 // FsStore
 nuget Fable.SignalR ~> 0.11
-

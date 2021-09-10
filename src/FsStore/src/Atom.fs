@@ -199,6 +199,9 @@ module Atom =
                 Some (fun getter setter newValue -> promise { do! write getter setter newValue })
             )
 
+        let inline asyncSetSelector (write: AsyncWrite<'A>) =
+            asyncSelector (fun _ -> JS.undefined) write
+
         let inline asyncReadSelector<'A> (read: AsyncRead<'A>) =
             asyncSelector
                 read

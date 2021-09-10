@@ -18,6 +18,7 @@ module Hydrate =
         Atom.set setter (State.Atoms.Message.ack messageId) (Some false)
         messageId
 
+
     let inline hydrateFile setter (hexString: string) =
         let chunkCount = int (Math.Ceiling (float hexString.Length / float fileChunkSize))
 

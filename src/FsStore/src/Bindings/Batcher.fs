@@ -58,11 +58,11 @@ module Batcher =
             trigger: ((BatchKind * TicksGuid * 'TKey) [] -> JS.Promise<unit>)
         | Set of ticks: TicksGuid * trigger: (TicksGuid -> JS.Promise<unit>)
 
-    let inline macroQueue fn =
-        JS.setTimeout (fn >> Promise.start) 0 |> ignore
+//    let inline macroQueue fn =
+//        JS.setTimeout (fn >> Promise.start) 0 |> ignore
     //        fn () |> Promise.start
 
-    let inline macroQueue2 fn = JS.setTimeout fn 0 |> ignore
+//    let inline macroQueue2 fn = JS.setTimeout fn 0 |> ignore
 
     let inline wrapTry fn =
         try

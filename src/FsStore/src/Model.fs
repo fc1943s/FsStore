@@ -24,7 +24,6 @@ module Model =
     type Getter<'A> = Jotai.Getter<'A>
     type Setter<'A> = Jotai.Setter<'A>
 
-
     type StoreAtomPath =
         | RootAtomPath of storeRoot: StoreRoot * name: AtomName
         | CollectionAtomPath of storeRoot: StoreRoot * collection: Collection
@@ -51,7 +50,6 @@ module Model =
         | Minimal
         | Sync of Gun.GunPeer []
 
-
     [<Erase>]
     type AtomPath = AtomPath of atomPath: string
 
@@ -61,19 +59,28 @@ module Model =
         | Current
         | Temp of Serializer<'A>
 
+    [<RequireQualifiedAccess>]
+    type Notification =
+        | Success of string
+        | Error of string
 
     [<StructuralComparison; StructuralEquality; RequireQualifiedAccess>]
     type AppCommand =
         | Init of state: AppEngineState
+        | QueueNotification of notification: Notification
         | SignInPair of keys: GunKeys
 
-    and AppEngineState = { Adapters: unit list }
+    and AppEngineState =
+        {
+            NotificationQueue: Notification list
+        }
 
     [<RequireQualifiedAccess>]
     type AppEvent =
-        | UserSignedIn
-        | AdapterRegistered
-        | Error of error: string
+        | UserRegistered of alias: Gun.Alias
+        | UserSignedIn of alias: Gun.Alias
+        | UserPasswordChanged of alias: Gun.Alias
+        | UserDeleted of alias: Gun.Alias
 
     [<RequireQualifiedAccess>]
     type AtomCommand =
@@ -81,13 +88,10 @@ module Model =
         | Subscribe
         | Unsubscribe
 
-    and AtomEngineState = { Adapters: (unit -> unit) list }
+    and AtomEngineState = { Counter: int }
 
     [<RequireQualifiedAccess>]
-    type AtomEvent =
-        | Subscribed
-        | Unsubscribed
-        | Error of error: string
+    type AtomEvent = | Noop
 
     type SubscriptionId = SubscriptionId of TicksGuid
     type MessageId = MessageId of TicksGuid
@@ -133,10 +137,10 @@ module Model =
         static member inline AtomKey _atomPath = AtomPath (failwith "invalid")
 
     type AppEngineState with
-        static member inline Default = { Adapters = [] }
+        static member inline Default = { NotificationQueue = [] }
 
     type AtomEngineState with
-        static member inline Default = { Adapters = [] }
+        static member inline Default = { Counter = 0 }
 
     type MessageId with
         static member inline NewId () = MessageId (Guid.newTicksGuid ())

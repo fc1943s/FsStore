@@ -3,7 +3,6 @@ namespace FsStore.Hooks
 open FsJs
 open FsStore
 open FsStore.Model
-open FsCore
 open FsStore.Bindings
 open FsStore.State
 
@@ -17,25 +16,31 @@ module Messaging =
                 promise {
                     match command with
                     | AppCommand.Init state -> return state, []
+                    | AppCommand.QueueNotification notification ->
+                        return
+                            { state with
+                                NotificationQueue = notification :: state.NotificationQueue
+                            },
+                            []
+
                     | AppCommand.SignInPair keys ->
-                        match! Auth.signIn getter setter ("", keys |> Json.encode<Gun.GunKeys>) with
-                        | Ok _ ->
-                            return
-                                state,
-                                Message.Event AppEvent.UserSignedIn
-                                |> List.singleton
-                        | Error error ->
-                            return
-                                state,
-                                Message.Event (AppEvent.Error error)
-                                |> List.singleton
-                //                    | _ -> return failwith "invalid message"
+                        let! result = Auth.signIn getter setter ("", keys |> Json.encode<Gun.GunKeys>)
+
+                        let message =
+                            match result with
+                            | Ok (alias, _keys) -> Message.Event (AppEvent.UserSignedIn alias)
+                            | Error error -> Message.Command (AppCommand.QueueNotification (Notification.Error error))
+
+                        return
+                            state,
+                            [
+                                message
+                            ]
                 }
 
             Profiling.addCount (fun () -> $"{nameof FsStore} | Messaging.appUpdate. command={command} result={result}")
             logger.Trace (fun () -> $"Messaging.appUpdate. command={command} result={result}")
             return result
-        //                    | _ -> return failwith "invalid message"
         }
 
     let inline atomUpdate getter _setter state command =
@@ -48,11 +53,9 @@ module Messaging =
                     | AtomCommand.Init state -> return state, []
                     | AtomCommand.Subscribe -> return state, []
                     | AtomCommand.Unsubscribe -> return state, []
-                //                    | _ -> return failwith "invalid message"
                 }
 
             Profiling.addCount (fun () -> $"{nameof FsStore} | Messaging.atomUpdate. command={command} result={result}")
             logger.Trace (fun () -> $"Messaging.atomUpdate. command={command} result={result}")
             return result
-        //                    | _ -> return failwith "invalid message"
         }
