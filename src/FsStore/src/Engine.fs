@@ -431,7 +431,7 @@ module Engine =
                 Object.newDisposable
                     (fun () ->
                         Logger.logDebug
-                            (fun () -> $"{nameof FsStore} | BaseStore.newHashedDisposable / Dispose()")
+                            (fun () -> $"{nameof FsStore} | Engine.newHashedDisposable / Dispose()")
                             getLocals)
         }
 

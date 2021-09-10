@@ -4,45 +4,47 @@
         <TargetFramework>net6.0</TargetFramework>
         <LangVersion>preview</LangVersion>
         <PackageId>FsStore</PackageId>
-        <Version>0.2.0-alpha.39</Version>
+        <Version>0.2.0-alpha.40</Version>
     </PropertyGroup>
     <ItemGroup>
-        <Compile Include="src\Bindings\Batcher.fs"/>
-        <Compile Include="src\Bindings\Gun.fs"/>
-        <Compile Include="src\Bindings\Jotai.fs"/>
-        <Compile Include="src\Bindings\Crypto.fs"/>
-        <Compile Include="src\Model.fs"/>
-        <Compile Include="src\Core.fs"/>
-        <Compile Include="src\Atom.fs"/>
-        <Compile Include="src\State\Atoms.fs"/>
-        <Compile Include="src\State\Selectors.fs"/>
-        <Compile Include="src\Engine.fs"/>
-        <Compile Include="src\Atoms\File.fs"/>
-        <Compile Include="src\Atoms\Message.fs"/>
-        <Compile Include="src\Atoms\Device.fs"/>
-        <Compile Include="src\Atoms\Join.fs"/>
-        <Compile Include="src\BaseStore.fs"/>
-        <Compile Include="src\Utils\TempValue.fs"/>
-        <Compile Include="src\Hydrate.fs"/>
-        <Compile Include="src\Hooks\Store.fs"/>
-        <Compile Include="src\Hooks\Auth.fs"/>
-        <Compile Include="src\Hooks\Messaging.fs"/>
-        <Compile Include="src\Temp.fs"/>
-        <Compile Include="src\Tests\Counter.test.fs"/>
-        <Compile Include="src\Selectors\File.fs"/>
-        <Content Include="package.json"/>
-        <Content Include="paket.references"/>
-        <Content Include=".gitignore"/>
-        <Content Include="yarn.lock"/>
+        <Compile Include="src\Bindings\Batcher.fs" />
+        <Compile Include="src\Bindings\Gun.fs" />
+        <Compile Include="src\Bindings\Jotai.fs" />
+        <Compile Include="src\Bindings\Crypto.fs" />
+        <Compile Include="src\Model.fs" />
+        <Compile Include="src\Core.fs" />
+        <Compile Include="src\Atom.fs" />
+        <Compile Include="src\State\Atoms.fs" />
+        <Compile Include="src\State\Selectors.fs" />
+        <Compile Include="src\State\Selectors\Gun.fs" />
+        <Compile Include="src\State\Selectors\Hub.fs" />
+        <Compile Include="src\Engine.fs" />
+        <Compile Include="src\Atoms\File.fs" />
+        <Compile Include="src\Atoms\Message.fs" />
+        <Compile Include="src\Atoms\Device.fs" />
+        <Compile Include="src\Atoms\Join.fs" />
+        <Compile Include="src\State.fs" />
+        <Compile Include="src\Utils\TempValue.fs" />
+        <Compile Include="src\Hydrate.fs" />
+        <Compile Include="src\Hooks\Store.fs" />
+        <Compile Include="src\Hooks\Auth.fs" />
+        <Compile Include="src\Hooks\Messaging.fs" />
+        <Compile Include="src\Temp.fs" />
+        <Compile Include="src\Tests\Counter.test.fs" />
+        <Compile Include="src\Selectors\File.fs" />
+        <Content Include="package.json" />
+        <Content Include="paket.references" />
+        <Content Include=".gitignore" />
+        <Content Include="yarn.lock" />
         <Content Include="pack.ps1">
             <Pack>false</Pack>
         </Content>
         <Content Include="test.ps1">
             <Pack>false</Pack>
         </Content>
-        <Content Include="jest.config.js"/>
-        <Content Include="paket.template"/>
-        <Content Include="_babel.config.json"/>
+        <Content Include="jest.config.js" />
+        <Content Include="paket.template" />
+        <Content Include="_babel.config.json" />
     </ItemGroup>
-    <Import Project="..\..\.paket\Paket.Restore.targets"/>
+    <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
