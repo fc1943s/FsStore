@@ -164,29 +164,33 @@ module Auth =
 
                                     logger.Debug (fun () -> "Auth.useSignUp") getLocals
 
-                                    let! ack = Gun.createUser user (Gun.Alias alias) (Gun.Pass password)
 
-                                    let getLocals () =
-                                        $"signUpAck={JS.JSON.stringify ack} {getLocals ()}"
+                                    match! signIn getter setter (alias, password) with
+                                    | Ok (alias, keys) -> return Ok (alias, keys)
+                                    | Error error ->
+                                        let! ack = Gun.createUser user (Gun.Alias alias) (Gun.Pass password)
 
-                                    logger.Debug (fun () -> "Auth.useSignUp. Gun.createUser") getLocals
+                                        let getLocals () =
+                                            $"error={error} signUpAck={JS.JSON.stringify ack} {getLocals ()}"
 
-                                    return!
-                                        promise {
-                                            match ack with
-                                            | {
-                                                  err = None
-                                                  ok = Some 0
-                                                  pub = Some _
-                                              } ->
-                                                match! signIn getter setter (alias, password) with
-                                                | Ok (alias, keys) ->
-                                                    do! Gun.putPublicHash gun alias
-                                                    return Ok (alias, keys)
-                                                | Error error -> return Error error
-                                            | { err = Some err } -> return Error err
-                                            | _ -> return Error $"Invalid ack: {JS.JSON.stringify ack}"
-                                        }
+                                        logger.Debug (fun () -> "Auth.useSignUp. Gun.createUser") getLocals
+
+                                        return!
+                                            promise {
+                                                match ack with
+                                                | {
+                                                      err = None
+                                                      ok = Some 0
+                                                      pub = Some _
+                                                  } ->
+                                                    match! signIn getter setter (alias, password) with
+                                                    | Ok (alias, keys) ->
+                                                        do! Gun.putPublicHash gun alias
+                                                        return Ok (alias, keys)
+                                                    | Error error -> return Error error
+                                                | { err = Some err } -> return Error err
+                                                | _ -> return Error $"Invalid ack: {JS.JSON.stringify ack}"
+                                            }
                             }
 
                         result
