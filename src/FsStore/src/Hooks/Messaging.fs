@@ -29,7 +29,10 @@ module Messaging =
                         let message =
                             match result with
                             | Ok (alias, _keys) -> Message.Event (AppEvent.UserSignedIn alias)
-                            | Error error -> Message.Command (AppCommand.QueueNotification (Notification.Error error))
+                            | Error error ->
+                                Message.Command (
+                                    AppCommand.QueueNotification (Notification.Error ("Sign In Error", error, None))
+                                )
 
                         return
                             state,

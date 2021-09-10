@@ -18,8 +18,7 @@ module Auth =
             | Error error ->
                 Hydrate.hydrateAppMessage
                     setter
-                    (Message.Command (AppCommand.QueueNotification (Notification.Error error)))
-
+                    (Message.Command (AppCommand.QueueNotification (Notification.Error ("User Error", error, None))))
 
     let signIn =
         fun getter _setter (alias, password) ->

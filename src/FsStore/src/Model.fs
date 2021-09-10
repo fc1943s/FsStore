@@ -61,8 +61,10 @@ module Model =
 
     [<RequireQualifiedAccess>]
     type Notification =
-        | Success of string
-        | Error of string
+        | Success of title: string * description: string
+        | Error of title: string * description: string * error: string option
+        | Warning of title: string * description: string
+        | Info of title: string * description: string
 
     [<StructuralComparison; StructuralEquality; RequireQualifiedAccess>]
     type AppCommand =
