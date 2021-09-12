@@ -11,8 +11,8 @@ files
     paket.references ==> fable
     src/*.fs ==> fable/src
     src/Bindings/*.fs ==> fable/src/Bindings
-    src/Selectors/*.fs ==> fable/src/Selectors
     src/State/*.fs ==> fable/src/State
+    src/State/Selectors/*.fs ==> fable/src/State/Selectors
     src/Atoms/*.fs ==> fable/src/Atoms
     src/Store/*.fs ==> fable/src/Store
     src/Utils/*.fs ==> fable/src/Utils
