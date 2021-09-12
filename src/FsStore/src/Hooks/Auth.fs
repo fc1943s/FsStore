@@ -151,7 +151,7 @@ module Auth =
                         return Error "Invalid email address"
                     else
                         let gun = Atom.get getter Selectors.Gun.gun
-                        let logger = Atom.get getter Selectors.logger
+                        let logger = Atom.get getter Selectors.Store.logger
                         let user = gun.user ()
 
                         let getLocals () =
@@ -199,7 +199,7 @@ module Auth =
         let setInternalAlias = Store.useSetState Atoms.internalAlias
         let gun = Store.useValue Selectors.Gun.gun
         let privateKeys = Store.useValue Selectors.Gun.privateKeys
-        let logger = Store.useValue Selectors.logger
+        let logger = Store.useValue Selectors.Store.logger
 
         let getLocals () =
             $"privateKeys.IsSome={privateKeys.IsSome}"

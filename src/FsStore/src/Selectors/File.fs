@@ -23,7 +23,7 @@ module rec File =
         fileReadSelectorFamily
             (AtomName (nameof hexString))
             (fun fileId getter ->
-                let logger = Atom.get getter Selectors.logger
+                let logger = Atom.get getter Store.logger
                 let chunkCount = Atom.get getter (Atoms.File.chunkCount fileId)
 
                 match chunkCount with

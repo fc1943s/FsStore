@@ -44,7 +44,7 @@ module Store =
         (atom: InputAtom<'TValue7> option)
         (inputScope: InputScope<'TValue7> option)
         =
-        let logger = useValue Selectors.logger
+        let logger = useValue Selectors.Store.logger
 
         let currentAtomField, tempAtomField =
             React.useMemo (
