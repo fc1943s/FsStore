@@ -13,6 +13,7 @@ files
     src/Bindings/*.fs ==> fable/src/Bindings
     src/State/*.fs ==> fable/src/State
     src/State/Selectors/*.fs ==> fable/src/State/Selectors
+    src/Selectors/*.fs ==> fable/src/Selectors
     src/Atoms/*.fs ==> fable/src/Atoms
     src/Store/*.fs ==> fable/src/Store
     src/Utils/*.fs ==> fable/src/Utils

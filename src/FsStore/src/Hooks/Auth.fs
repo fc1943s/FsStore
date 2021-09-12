@@ -204,7 +204,6 @@ module Auth =
         let getLocals () =
             $"privateKeys.IsSome={privateKeys.IsSome}"
 
-
         React.useEffect (
             (fun () ->
                 promise {
