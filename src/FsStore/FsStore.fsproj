@@ -4,7 +4,7 @@
         <TargetFramework>net6.0</TargetFramework>
         <LangVersion>preview</LangVersion>
         <PackageId>FsStore</PackageId>
-        <Version>0.2.0-alpha.45</Version>
+        <Version>0.2.0-alpha.46</Version>
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="src\Bindings\Batcher.fs" />
@@ -15,7 +15,7 @@
         <Compile Include="src\Core.fs" />
         <Compile Include="src\Atom.fs" />
         <Compile Include="src\State\Atoms.fs" />
-        <Compile Include="src\State\Selectors.fs" />
+        <Compile Include="src\State\Selectors\Store.fs" />
         <Compile Include="src\State\Selectors\Gun.fs" />
         <Compile Include="src\State\Selectors\Hub.fs" />
         <Compile Include="src\Engine.fs" />

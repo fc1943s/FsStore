@@ -12,11 +12,28 @@ open FsStore.State
 open Microsoft.FSharp.Core.Operators
 open FsJs
 open FsStore.Bindings
+open Fable.SignalR
+
+// TODO: remove
+module Sync =
+    [<RequireQualifiedAccess>]
+    type Request =
+        | Connect of alias: string
+        | Set of alias: string * atomPath: string * value: string
+        | Get of alias: string * atomPath: string
+        | Filter of alias: string * atomPath: string
+
+    [<RequireQualifiedAccess>]
+    type Response =
+        | ConnectResult
+        | SetResult of ok: bool
+        | GetResult of value: string option
+        | GetStream of alias: string * atomPath: string * value: string option
+        | FilterResult of keys: string []
+        | FilterStream of alias: string * atomPath: string * keys: string []
 
 
 module Hub =
-    open Fable.SignalR
-
     let collection = Collection (nameof Hub)
 
     let inline readSelector name fn =
@@ -241,7 +258,7 @@ module Hub =
         readSelector
             (nameof hub)
             (fun getter ->
-                let logger = Atom.get getter Selectors.logger
+                let logger = Atom.get getter Store.logger
                 let _hubTrigger = Atom.get getter Atoms.hubTrigger
                 let hubConnection = Atom.get getter hubConnection
 

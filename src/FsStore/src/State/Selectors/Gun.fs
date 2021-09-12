@@ -14,6 +14,7 @@ open FsStore.Bindings
 
 #nowarn "40"
 
+
 module rec Gun =
     let collection = Collection (nameof Gun)
 
@@ -72,7 +73,7 @@ module rec Gun =
         readSelector
             (nameof gunUser)
             (fun getter ->
-                let logger = Atom.get getter Selectors.logger
+                let logger = Atom.get getter Store.logger
                 let _gunTrigger = Atom.get getter Atoms.gunTrigger
                 let gun = Atom.get getter gun
 
@@ -87,7 +88,7 @@ module rec Gun =
         readSelector
             (nameof gunNamespace)
             (fun getter ->
-                let logger = Atom.get getter Selectors.logger
+                let logger = Atom.get getter Store.logger
                 let _gunTrigger = Atom.get getter Atoms.gunTrigger
                 let gunUser = Atom.get getter gunUser
 
@@ -102,7 +103,7 @@ module rec Gun =
         readSelector
             (nameof alias)
             (fun getter ->
-                let logger = Atom.get getter Selectors.logger
+                let logger = Atom.get getter Store.logger
                 let _gunTrigger = Atom.get getter Atoms.gunTrigger
                 let gunUser = Atom.get getter gunUser
 
@@ -132,7 +133,7 @@ module rec Gun =
         readSelector
             (nameof privateKeys)
             (fun getter ->
-                let logger = Atom.get getter Selectors.logger
+                let logger = Atom.get getter Store.logger
                 let _gunTrigger = Atom.get getter Atoms.gunTrigger
                 let gunUser = Atom.get getter gunUser
 

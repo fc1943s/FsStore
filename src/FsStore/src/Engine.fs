@@ -4,7 +4,6 @@ open System
 open System.Collections.Generic
 open Fable.Core.JsInterop
 open Fable.Core
-open FsBeacon.Shared
 open FsCore.BaseModel
 open FsJs
 open FsStore.Bindings
@@ -143,9 +142,10 @@ module Engine =
                         getLocals
 
         let inline refreshInternalState getter =
-            if lastStore.IsNone then lastStore <- Atom.get getter Selectors.store
+            if lastStore.IsNone then
+                lastStore <- Atom.get getter Selectors.Store.store
 
-            let _logger = Atom.get getter Selectors.logger
+            let _logger = Atom.get getter Selectors.Store.logger
 
             let newState = stateFn getter
 
@@ -697,12 +697,12 @@ module Engine =
                                             let! subscription =
                                                 hubSubscribe
                                                     hub
-                                                    (Sync.Request.Get (alias |> Alias.Value, atomPath))
-                                                    (fun (msg: Sync.Response) ->
+                                                    (Selectors.Sync.Request.Get (alias |> Alias.Value, atomPath))
+                                                    (fun (msg: Selectors.Sync.Response) ->
                                                         promise {
 
                                                             match msg with
-                                                            | Sync.Response.GetResult result ->
+                                                            | Selectors.Sync.Response.GetResult result ->
                                                                 let getLocals () =
                                                                     $"msg={msg} atomPath={atomPath} {getLocals ()}"
 
@@ -768,7 +768,7 @@ module Engine =
 
                                                     let! response =
                                                         hub.invokeAsPromise (
-                                                            Sync.Request.Set (
+                                                            Selectors.Sync.Request.Set (
                                                                 alias |> Alias.Value,
                                                                 atomPath,
                                                                 newValueJson
@@ -776,7 +776,7 @@ module Engine =
                                                         )
 
                                                     match response with
-                                                    | Sync.Response.SetResult result ->
+                                                    | Selectors.Sync.Response.SetResult result ->
 
                                                         let getLocals () = $"result={result} {getLocals ()}"
 
@@ -866,8 +866,8 @@ module Engine =
                                     let subscription =
                                         hubSubscribe
                                             hub
-                                            (Sync.Request.Filter (alias |> Alias.Value, atomPath))
-                                            (fun (response: Sync.Response) ->
+                                            (Selectors.Sync.Request.Filter (alias |> Alias.Value, atomPath))
+                                            (fun (response: Selectors.Sync.Response) ->
                                                 let getLocals () = $"response={response}  {getLocals ()}"
 
                                                 addTimestamp
@@ -876,7 +876,7 @@ module Engine =
                                                     getLocals
 
                                                 match response with
-                                                | Sync.Response.FilterResult keys -> handle keys
+                                                | Selectors.Sync.Response.FilterResult keys -> handle keys
                                                 | response ->
                                                     let getLocals () = $"response={response} {getLocals ()}"
 
@@ -1773,7 +1773,8 @@ module Engine =
                 let hub = Atom.get getter Selectors.Hub.hub
 
                 match hub with
-                | Some hub -> do! hub.sendAsPromise (Sync.Request.Set (alias, atomPath |> AtomPath.Value, null))
+                | Some hub ->
+                    do! hub.sendAsPromise (Selectors.Sync.Request.Set (alias, atomPath |> AtomPath.Value, null))
                 | _ -> Logger.logDebug (fun () -> $"{nameof FsStore} | Engine.delete. invalid hub. skipping") getLocals
             | _ -> failwith $"{nameof FsStore} | Engine.delete. invalid alias"
         }
