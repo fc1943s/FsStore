@@ -5,6 +5,7 @@ open Fable.Core
 open FsBeacon.Shared
 open FsCore
 open FsCore.BaseModel
+open FsJs.Dom
 open FsStore.Bindings.Gun
 open FsStore.Model
 open FsStore
@@ -50,6 +51,7 @@ module Hub =
 
                 let hubUrl = Atom.get getter Atoms.hubUrl
                 let alias = Atom.get getter Selectors.Gun.alias
+                let _hubTrigger = Atom.get getter Atoms.hubTrigger
 
                 let getLocals () =
                     $"alias={alias} hubUrl={hubUrl} {getLocals ()}"
@@ -61,9 +63,10 @@ module Hub =
                     let connection =
                         SignalR.connect<Sync.Request, Sync.Request, obj, Sync.Response, Sync.Response>
                             (fun hub ->
-                                hub
+                                let msgpack = Global.internalGet "msgpack" false
+
+                                (if msgpack then hub.useMessagePack () else hub)
                                     .withUrl($"{hubUrl}{Sync.endpoint}")
-                                    //                    .useMessagePack()
                                     .withAutomaticReconnect(
                                         {
                                             nextRetryDelayInMilliseconds =
