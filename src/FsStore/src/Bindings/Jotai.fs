@@ -12,17 +12,17 @@ module Jotai =
 
     type AtomConfig<'A> =
         {
-            [<Emit "toString">]
-            ToString: unit -> string
-
+//            [<Emit "toString">]
+//            ToString: unit -> string
+//
             [<Emit "init">]
             init: 'A option
-
-            [<Emit "read">]
-            Read: Read<'A>
-
-            [<Emit "write">]
-            Write: Write<'A>
+//
+//            [<Emit "read">]
+//            Read: Read<'A>
+//
+//            [<Emit "write">]
+//            Write: Write<'A>
         }
 
     and Getter<'A> = AtomConfig<'A> -> 'A

@@ -394,32 +394,32 @@ module Atom =
 
     let inline split atom = jotaiUtils.splitAtom atom
 
-    module Atom =
-        let mutable private keyCount = 0
-
-        let create atomType =
-            keyCount <- keyCount + 1
-            let key = $"atom{keyCount}"
-
-            let rec config =
-                {
-                    ToString = fun () -> key
-                    init =
-                        match atomType with
-                        | AtomType.Atom value -> Some value
-                        | _ -> None
-                    Read =
-                        match atomType with
-                        | AtomType.Atom _ -> fun getter -> get getter config
-                        | AtomType.ReadSelector read -> read
-                        | AtomType.Selector (read, _) -> read
-                        | AtomType.WriteOnlyAtom _ -> JS.undefined
-                    Write =
-                        match atomType with
-                        | AtomType.Atom _ -> fun _ setter -> set setter config
-                        | AtomType.ReadSelector _ -> JS.undefined
-                        | AtomType.Selector (_, write) -> write
-                        | AtomType.WriteOnlyAtom write -> write
-                }
-
-            config
+//    module Atom =
+//        let mutable private keyCount = 0
+//
+//        let create atomType =
+//            keyCount <- keyCount + 1
+//            let key = $"atom{keyCount}"
+//
+//            let rec config =
+//                {
+//                    ToString = fun () -> key
+//                    init =
+//                        match atomType with
+//                        | AtomType.Atom value -> Some value
+//                        | _ -> None
+//                    Read =
+//                        match atomType with
+//                        | AtomType.Atom _ -> fun getter -> get getter config
+//                        | AtomType.ReadSelector read -> read
+//                        | AtomType.Selector (read, _) -> read
+//                        | AtomType.WriteOnlyAtom _ -> JS.undefined
+//                    Write =
+//                        match atomType with
+//                        | AtomType.Atom _ -> fun _ setter -> set setter config
+//                        | AtomType.ReadSelector _ -> JS.undefined
+//                        | AtomType.Selector (_, write) -> write
+//                        | AtomType.WriteOnlyAtom write -> write
+//                }
+//
+//            config
