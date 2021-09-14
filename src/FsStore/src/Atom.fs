@@ -164,11 +164,10 @@ module Atom =
 
             atom
 
-        let inline readSelector (read: Read<'A>) =
-            selector
-                read
-                (fun _ _ _ ->
-                    failwith $"{nameof FsStore} | Atom.Primitives.readSelector / set() / read only atom {getLocals ()}")
+        let inline throwReadOnly _ _ _ =
+            failwith $"{nameof FsStore} | Atom.Primitives.throwReadOnly / set() / read only atom {getLocals ()}"
+
+        let inline readSelector (read: Read<'A>) = selector read throwReadOnly
 
         let inline setSelector (write: Write<'A>) = selector (fun _ -> JS.undefined) write
 
@@ -196,11 +195,7 @@ module Atom =
             atomFamily (fun param -> selector (read param) (write param))
 
         let inline readSelectorFamily<'TKey, 'A> (read: 'TKey -> Read<'A>) : ('TKey -> AtomConfig<'A>) =
-            selectorFamily
-                read
-                (fun _ _ _ ->
-                    failwith
-                        $"{nameof FsStore} | Atom.Primitives.readSelectorFamily / set() / read only atom {getLocals ()}")
+            selectorFamily read throwReadOnly
 
         let inline asyncSelector<'A> (read: AsyncRead<'A>) (write: AsyncWrite<'A>) =
             jotai.atom (
@@ -211,15 +206,8 @@ module Atom =
         let inline asyncSetSelector (write: AsyncWrite<'A>) =
             asyncSelector (fun _ -> JS.undefined) write
 
-        let inline asyncReadSelector<'A> (read: AsyncRead<'A>) =
-            asyncSelector
-                read
-                (fun _ _ _newValue ->
-                    promise {
+        let inline asyncReadSelector<'A> (read: AsyncRead<'A>) = asyncSelector read throwReadOnly
 
-                        failwith
-                            $"{nameof FsStore} | Atom.Primitives.asyncReadSelector / set() / read only atom {getLocals ()}"
-                    })
 
         let inline asyncSelectorFamily<'TKey, 'A> (read: 'TKey -> AsyncRead<'A>) (write: 'TKey -> AsyncWrite<'A>) =
             atomFamily
@@ -229,13 +217,7 @@ module Atom =
                         (fun getter setter newValue -> promise { do! write param getter setter newValue }))
 
         let inline asyncReadSelectorFamily<'TKey, 'A> (read: 'TKey -> AsyncRead<'A>) =
-            asyncSelectorFamily
-                read
-                (fun _key _ _ _newValue ->
-                    promise {
-                        failwith
-                            $"{nameof FsStore} | Atom.Primitives.asyncReadSelectorFamily / set() / read only atom {getLocals ()}"
-                    })
+            asyncSelectorFamily read throwReadOnly
 
         let inline create atomType =
             match atomType with
@@ -270,20 +252,13 @@ module Atom =
         wrapper |> register storeAtomPath
 
     let inline readSelector storeAtomPath read =
-        selector
-            storeAtomPath
-            read
-            (fun _ _ _ -> failwith $"{nameof FsStore} | Atom.readSelector / set() / read only atom {getLocals ()}")
+        selector storeAtomPath read Primitives.throwReadOnly
 
     let inline selectorFamily storeAtomPathFn read write =
         Primitives.atomFamily (fun param -> selector (storeAtomPathFn param) (read param) (write param))
 
     let inline readSelectorFamily storeAtomPathFn read =
-        selectorFamily
-            storeAtomPathFn
-            read
-            (fun _ _ _ ->
-                failwith $"{nameof FsStore} | Atom.readSelectorFamily / set() / read only atom {getLocals ()}")
+        selectorFamily storeAtomPathFn read Primitives.throwReadOnly
 
     let inline asyncSelector<'A> storeAtomPath (read: AsyncRead<'A>) (write: AsyncWrite<'A>) =
         let getLocals () =
@@ -310,12 +285,7 @@ module Atom =
                 })
 
     let inline asyncReadSelector<'A> storeAtomPath (read: AsyncRead<'A>) =
-        asyncSelector
-            storeAtomPath
-            read
-            (fun _ _ _newValue ->
-                promise {
-                    failwith $"{nameof FsStore} | Atom.asyncReadSelector / set() / read only atom {getLocals ()}" })
+        asyncSelector storeAtomPath read Primitives.throwReadOnly
 
     let inline asyncSelectorFamily<'TKey, 'A>
         storeAtomPathFn
@@ -330,13 +300,7 @@ module Atom =
                     (fun getter setter newValue -> promise { do! write param getter setter newValue }))
 
     let inline asyncReadSelectorFamily<'TKey, 'A> storeAtomPathFn (read: 'TKey -> AsyncRead<'A>) =
-        asyncSelectorFamily
-            storeAtomPathFn
-            read
-            (fun _key _ _ _newValue ->
-                promise {
-                    failwith $"{nameof FsStore} | Atom.asyncReadSelectorFamily / set() / read only atom {getLocals ()}"
-                })
+        asyncSelectorFamily storeAtomPathFn read Primitives.throwReadOnly
 
     let inline atomFamilyAtom defaultValueFn =
         Primitives.atomFamily (fun param -> Primitives.atom (defaultValueFn param))
