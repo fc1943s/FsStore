@@ -1526,7 +1526,7 @@ module Engine =
         let localAdaptersAtom =
             createAtomWithGroup storeAtomPath (Atom.AdapterType.Memory, (NotFromUi, defaultValue))
             |> Atom.map
-                (fun value ->
+                (fun _getter value ->
                     let result =
                         value
                         |> List.map
@@ -1538,7 +1538,7 @@ module Engine =
 
                     addTimestamp (fun () -> "[ <((A))> wrapper.get() ](a6)") getLocals
                     result)
-                (fun (newValue: (Atom.AdapterType * Transaction) list) ->
+                (fun _getter _setter (newValue: (Atom.AdapterType * Transaction) list) ->
                     let newValue =
                         newValue
                         |> List.map

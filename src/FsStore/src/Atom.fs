@@ -381,8 +381,8 @@ module Atom =
         atom
         |> wrap
             (fun getter ->
-                let value = get getter atom
-                let newValue: 'B = readFn value
+                let value: 'A = get getter atom
+                let newValue: 'B = readFn getter value
 
                 let getLocals () =
                     $"value={value} newValue={newValue} {getLocals ()}"
@@ -390,9 +390,11 @@ module Atom =
                 addTimestamp (fun () -> "[ read() ]") getLocals
                 newValue)
             (fun getter setter newValue ->
-                let getLocals () = $"newValue={newValue} {getLocals ()}"
+                let originalValue: 'A = writeFn getter setter newValue
+
+                let getLocals () = $"newValue={newValue} originalValue={originalValue} {getLocals ()}"
                 addTimestamp (fun () -> "[ write() ]") getLocals
-                writeFn getter setter newValue)
+                set setter atom originalValue)
 
 
     let emptyArrayAtom = Primitives.atom ([||]: obj [])
