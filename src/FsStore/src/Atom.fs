@@ -146,19 +146,29 @@ module Atom =
     module Primitives =
         let inline atom value = jotai.atom value
 
+        let inline writeNewValueFn getter atom (value: 'T) =
+            match jsTypeof value with
+            | "function" ->
+                let oldValue: 'T = get getter atom
+                let newValue = (unbox value) oldValue |> unbox
+
+                let getLocals () =
+                    $"oldValue={oldValue} newValue={newValue} {getLocals ()}"
+
+                Profiling.addTimestamp
+                    (fun () -> $"{nameof FsStore} | Atom.Primitives.selector / write() / newValue==fn")
+                    getLocals
+
+                newValue
+            | _ -> value
+
         let inline selector<'A> (read: Read<'A>) (write: Write<'A>) =
             let rec atom =
                 jotai.atom (
                     read,
                     Some
-                        (fun getter setter value ->
-                            let newValue =
-                                match jsTypeof value with
-                                | "function" ->
-                                    let oldValue = get getter atom
-                                    (unbox value) oldValue |> unbox
-                                | _ -> value
-
+                        (fun getter setter newValue ->
+                            let newValue = writeNewValueFn getter atom newValue
                             write getter setter newValue)
                 )
 
@@ -198,10 +208,18 @@ module Atom =
             selectorFamily read throwReadOnly
 
         let inline asyncSelector<'A> (read: AsyncRead<'A>) (write: AsyncWrite<'A>) =
-            jotai.atom (
-                (fun getter -> promise { return! read getter }),
-                Some (fun getter setter newValue -> promise { do! write getter setter newValue })
-            )
+            let rec atom =
+                jotai.atom (
+                    (fun getter -> promise { return! read getter }),
+                    Some
+                        (fun getter setter newValue ->
+                            promise {
+                                let newValue = writeNewValueFn getter atom newValue
+                                do! write getter setter newValue
+                            })
+                )
+
+            atom
 
         let inline asyncSetSelector (write: AsyncWrite<'A>) =
             asyncSelector (fun _ -> JS.undefined) write
@@ -371,18 +389,10 @@ module Atom =
 
                 addTimestamp (fun () -> "[ read() ]") getLocals
                 newValue)
-            (fun _getter setter newValue ->
-                let newValue: 'A = writeFn newValue
-
-                change
-                    setter
-                    atom
-                    (fun oldValue ->
-                        let getLocals () =
-                            $"oldValue={oldValue} newValue={newValue} {getLocals ()}"
-
-                        addTimestamp (fun () -> "[ write() ]") getLocals
-                        newValue))
+            (fun getter setter newValue ->
+                let getLocals () = $"newValue={newValue} {getLocals ()}"
+                addTimestamp (fun () -> "[ write() ]") getLocals
+                writeFn getter setter newValue)
 
 
     let emptyArrayAtom = Primitives.atom ([||]: obj [])
