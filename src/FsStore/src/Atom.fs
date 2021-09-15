@@ -352,12 +352,18 @@ module Atom =
     let inline createWithStorage<'A> storeAtomPath (defaultValue: 'A) =
         let defaultValueFormatted = defaultValue |> Enum.formatIfEnum
 
-        let internalAtom =
-            jotaiUtils.atomWithStorage
-                (storeAtomPath
-                 |> StoreAtomPath.AtomPath
-                 |> AtomPath.Value)
-                defaultValueFormatted
+        let atomPath =
+            storeAtomPath
+            |> StoreAtomPath.AtomPath
+            |> AtomPath.Value
+
+        let internalAtom = jotaiUtils.atomWithStorage atomPath defaultValueFormatted
+
+        let getLocals () =
+            $"internalAtom={internalAtom} defaultValueFormatted={defaultValueFormatted} defaultValue={defaultValue} {getLocals ()}"
+
+        let addTimestamp fn getLocals =
+            Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Atom.map {fn ()}") getLocals
 
         internalAtom
         |> wrap
@@ -367,6 +373,11 @@ module Atom =
                     argFn
                     |> Object.invokeOrReturn
                     |> Enum.formatIfEnum
+
+                let getLocals () =
+                    $"argFn={argFn} newValue={newValue} {getLocals ()}"
+
+                addTimestamp (fun () -> "[ read() ]") getLocals
 
                 set setter internalAtom newValue)
         |> register storeAtomPath
@@ -392,7 +403,9 @@ module Atom =
             (fun getter setter newValue ->
                 let originalValue: 'A = writeFn getter setter newValue
 
-                let getLocals () = $"newValue={newValue} originalValue={originalValue} {getLocals ()}"
+                let getLocals () =
+                    $"newValue={newValue} originalValue={originalValue} {getLocals ()}"
+
                 addTimestamp (fun () -> "[ write() ]") getLocals
                 set setter atom originalValue)
 

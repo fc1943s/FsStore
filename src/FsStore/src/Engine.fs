@@ -1731,7 +1731,6 @@ module Engine =
 
 
     let inline createAtomWithSubscriptionStorage storeAtomPath (defaultValue: 'A10) =
-        //        let storageAtom = Atom.createRegisteredWithStorage storeAtomPath (Guid.Empty, defaultValue)
         let storageAtom = Atom.createWithStorage<'A10> storeAtomPath defaultValue
         let syncAtom = createAtomWithSubscription storeAtomPath defaultValue
         bindAtom<'A10> syncAtom storageAtom
@@ -1741,7 +1740,6 @@ module Engine =
         |> Option.ofObjUnbox
         |> Option.map fn
         |> Option.defaultValue []
-
 
     let inline parseGuidKey fn keys =
         match keys |> Array.toList with
