@@ -201,7 +201,7 @@ module Auth =
         let privateKeys = Store.useValue Selectors.Gun.privateKeys
         let logger = Store.useValue Selectors.Store.logger
 
-        let getLocals () =
+        let inline getLocals () =
             $"privateKeys.IsSome={privateKeys.IsSome}"
 
         React.useEffect (
