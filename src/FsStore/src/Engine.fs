@@ -216,6 +216,22 @@ module Engine =
 
         let cache = Atom.Primitives.atom defaultValue
 
+        let inline getFn getter setAtom =
+            addTimestamp (fun () -> "[ wrapper.mount.fn() ](h2) interval fn") getLocals
+
+            if intervalHandle >= 0 then
+                let atomValue = Atom.get getter atom
+
+                if Some atomValue |> Object.compare lastValue |> not then
+                    let getLocals () = $"atomValue={atomValue} {getLocals ()}"
+
+                    addTimestamp (fun () -> "[ wrapper.mount.fn() ](h3) interval fn. triggering new value") getLocals
+
+                    lastValue <- Some atomValue
+                    setAtom atomValue
+
+        let debouncedGetFn = Js.debounce getFn 0
+
         let wrapper =
             cache
             |> wrapAtom
@@ -223,24 +239,8 @@ module Engine =
                     promise {
                         addTimestamp (fun () -> "[ wrapper.mount() ](h1)") getLocals
 
-                        let inline fn () =
-                            addTimestamp (fun () -> "[ wrapper.mount.fn() ](h2) interval fn") getLocals
-
-                            if intervalHandle >= 0 then
-                                let atomValue = Atom.get getter atom
-
-                                if Some atomValue |> Object.compare lastValue |> not then
-                                    let getLocals () = $"atomValue={atomValue} {getLocals ()}"
-
-                                    addTimestamp
-                                        (fun () -> "[ wrapper.mount.fn() ](h3) interval fn. triggering new value")
-                                        getLocals
-
-                                    setAtom atomValue
-                                    lastValue <- Some atomValue
-
-                        if intervalHandle = -1 then fn ()
-                        intervalHandle <- JS.setInterval fn interval
+                        if intervalHandle = -1 then debouncedGetFn getter setAtom
+                        intervalHandle <- JS.setInterval (fun () -> debouncedGetFn getter setAtom) interval
                     })
                 (fun _getter _setter ->
                     //                let logger = Logger.State.lastLogger
