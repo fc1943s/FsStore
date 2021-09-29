@@ -22,9 +22,15 @@ module TempValue =
                 //                    Dom.log
                 //                        (fun () -> $"getAtomField atomPath={atomPath} queryAtomPath atomPath={queryAtomPath atomPath}")
 
-                match Atom.query atomReference, inputScope with
-                | storeAtomPath, AtomScope.Temp -> Some (tempValue storeAtomPath)
-                | _ -> None
+                try
+                    match Atom.query atomReference, inputScope with
+                    | storeAtomPath, AtomScope.Temp -> Some (tempValue storeAtomPath)
+                    | _ -> None
+                with
+                | ex ->
+                    let getLocals () = $"ex={ex} {getLocals ()}"
+                    Logger.logError (fun () -> "TempValue.getAtomField") getLocals
+                    None
 
             current, temp
         | _ -> None, None
