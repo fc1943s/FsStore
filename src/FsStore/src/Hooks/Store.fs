@@ -66,7 +66,7 @@ module Store =
                     match inputScope, tempValue |> Option.defaultValue None with
                     | _, tempValue when tempValue = Some TempValue.___emptyTempAtom -> unbox null
                     | _, None -> currentValue |> Option.defaultValue (unbox null)
-                    | Some (InputScope.Temp (_, jsonDecode)), Some tempValue when tempValue <> null ->
+                    | Some (InputScope.Temp (_, jsonDecode)), Some (String.Valid tempValue) ->
                         try
                             let getLocals () =
                                 $"currentValue={currentValue} atom={atom} tempValue={tempValue} {getLocals ()}"
