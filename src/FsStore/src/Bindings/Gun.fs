@@ -371,7 +371,7 @@ module Gun =
 //                let valueSet = node.set newValue
 
                 let! newValue = userEncode<'TValue> keys value
-                printfn $"putPublicHash starting. newValue={newValue} t={jsTypeof newValue}"
+                printfn $"putPublicHash starting. value={value} newValue={newValue} t={jsTypeof newValue}"
 
                 let valueSet = node.set (GunValue.EncryptedSignedValue newValue)
 
