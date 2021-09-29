@@ -230,8 +230,6 @@ module Engine =
                     lastValue <- Some atomValue
                     setAtom atomValue
 
-        let debouncedGetFn = Js.debounce (fun (getter, setAtom) -> getFn getter setAtom) 0
-
         let wrapper =
             cache
             |> wrapAtom
@@ -239,8 +237,8 @@ module Engine =
                     promise {
                         addTimestamp (fun () -> "[ wrapper.mount() ](h1)") getLocals
 
-                        if intervalHandle = -1 then debouncedGetFn (getter, setAtom)
-                        intervalHandle <- JS.setInterval (fun () -> debouncedGetFn (getter, setAtom)) interval
+                        if intervalHandle = -1 then getFn getter setAtom
+                        intervalHandle <- JS.setInterval (fun () -> getFn getter setAtom) interval
                     })
                 (fun _getter _setter ->
                     //                let logger = Logger.State.lastLogger
