@@ -324,7 +324,11 @@ module Gun =
             with
             | ex ->
                 let getLocals () = $"ex={ex} value={value} {getLocals ()}"
-                Logger.logError (fun () -> $"{nameof FsStore} | Gun.userEncode / raising exception to caller from promise...") getLocals
+
+                Logger.logError
+                    (fun () -> $"{nameof FsStore} | Gun.userEncode / raising exception to caller from promise...")
+                    getLocals
+
                 return raise ex
         }
 
@@ -395,7 +399,9 @@ module Gun =
                             let getLocals () =
                                 $"putResult={putResult} key={key} pub={pub} hash={hash} {getLocals ()}"
 
-                            Logger.logDebug (fun () -> $"{nameof FsStore} | Gun.putPublicHash / valueSet.on()") getLocals
+                            Logger.logDebug
+                                (fun () -> $"{nameof FsStore} | Gun.putPublicHash / valueSet.on()")
+                                getLocals
                          }))
             | _ -> eprintfn $"invalid key. user.is={JS.JSON.stringify user.is}"
         }
@@ -408,10 +414,8 @@ module Gun =
                 try
                     let user = gun.user ()
 
-                    match user.is with
-                    | Some {
-                               alias = (Some (GunUserAlias.GunKeys { pub = Some pub }))
-                           } ->
+                    match user.__.sea with
+                    | Some { pub = Some pub } ->
                         gun
                             .get(AtomKeyFragment $"#{nameof data}")
                             .get(RadQuery (pubRadQuery pub))
@@ -429,7 +433,8 @@ module Gun =
                                             ())
                                 | _ ->
                                     Logger.logDebug
-                                        (fun () -> $"{nameof FsStore} | Gun.aliasRadQuery / radQuery gunValue is not nodereference")
+                                        (fun () ->
+                                            $"{nameof FsStore} | Gun.aliasRadQuery / radQuery gunValue is not nodereference")
                                         getLocals)
                     | _ -> Logger.logDebug (fun () -> $"{nameof FsStore} | Gun.aliasRadQuery / no pub found") getLocals
                 with
