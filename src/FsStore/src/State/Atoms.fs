@@ -20,13 +20,13 @@ module AtomsMagic =
                 (RootAtomPath (FsStore.storeRoot, AtomName (nameof showDebug)))
                 Dom.deviceInfo.IsTesting
 
-        let rec gunOptions =
-            Atom.createWithStorage
-                (RootAtomPath (FsStore.storeRoot, AtomName (nameof gunOptions)))
-                (GunOptions.Sync [||])
+        let rec gunPeers =
+            Atom.createWithStorage (RootAtomPath (FsStore.storeRoot, AtomName (nameof gunPeers))) ([||]: Gun.GunPeer [])
 
-        let rec hubUrl =
-            Atom.createWithStorage (RootAtomPath (FsStore.storeRoot, AtomName (nameof hubUrl))) (None: string option)
+        let rec gunSync = Atom.createWithStorage (RootAtomPath (FsStore.storeRoot, AtomName (nameof gunSync))) true
+
+        let rec hubUrls =
+            Atom.createWithStorage (RootAtomPath (FsStore.storeRoot, AtomName (nameof hubUrls))) ([||]: string [])
 
         let rec sessionRestored =
             Atom.create (RootAtomPath (FsStore.storeRoot, AtomName (nameof sessionRestored))) (AtomType.Atom false)

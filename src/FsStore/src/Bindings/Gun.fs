@@ -508,27 +508,35 @@ module Gun =
 
         Batcher.batch (Batcher.BatchType.Subscribe (ticks, fn))
 
-    let inline hubSubscribe<'A, 'R> (hub: HubConnection<'A, 'A, _, 'R, 'R>) action fn onError =
-        promise {
-            let! stream = hub.streamFrom action |> Async.StartAsPromise
+    let inline hubSubscribe<'A, 'R> (hub: HubConnection<'A, 'A, _, 'R, 'R> []) action fn onError =
+        hub
+        |> Array.map
+            (fun hub ->
+                promise {
+                    let! stream = hub.streamFrom action |> Async.StartAsPromise
 
-            let getLocals () = $"action={action} {getLocals ()}"
+                    let getLocals () = $"action={action} {getLocals ()}"
 
-            let subscription =
-                stream.subscribe
-                    {
-                        next = fun (msg: 'R) -> fn msg
-                        complete =
-                            fun () ->
-                                Logger.logDebug
-                                    (fun () -> $"{nameof FsStore} | Gun.hubSubscribe / complete()")
-                                    getLocals
-                        error =
-                            fun err ->
-                                let getLocals () = $"err={err} {getLocals ()}"
-                                Logger.logError (fun () -> $"{nameof FsStore} | Gun.hubSubscribe / error()") getLocals
-                                onError err
-                    }
+                    let subscription =
+                        stream.subscribe
+                            {
+                                next = fun (msg: 'R) -> fn msg
+                                complete =
+                                    fun () ->
+                                        Logger.logDebug
+                                            (fun () -> $"{nameof FsStore} | Gun.hubSubscribe / complete()")
+                                            getLocals
+                                error =
+                                    fun err ->
+                                        let getLocals () = $"err={err} {getLocals ()}"
 
-            return subscription
-        }
+                                        Logger.logError
+                                            (fun () -> $"{nameof FsStore} | Gun.hubSubscribe / error()")
+                                            getLocals
+
+                                        onError err
+                            }
+
+                    return subscription
+                })
+        |> Promise.all

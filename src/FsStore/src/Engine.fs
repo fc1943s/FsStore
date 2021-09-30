@@ -519,6 +519,7 @@ module Engine =
                                                 })
 
                                         newHashedDisposable subscriptionTicks
+                                        |> Promise.map Array.singleton
 
 
                                     let inline setAdapterValue (Transaction (fromUi, lastTicks, lastValue)) =
@@ -575,6 +576,7 @@ module Engine =
                                                 })
 
                                         newHashedDisposable subscriptionTicks
+                                        |> Promise.map Array.singleton
 
                                     let inline setAdapterValue
                                         (Transaction (fromUi, lastTicks, AtomValueRef lastValue))
@@ -644,8 +646,8 @@ module Engine =
                         let hub = Atom.get getter Selectors.Hub.hub
                         let privateKeys = Atom.get getter Selectors.Gun.privateKeys
 
-                        match hub, privateKeys with
-                        | Some hub, Some privateKeys ->
+                        match privateKeys with
+                        | Some privateKeys when hub.Length > 0 ->
                             let atomPath =
                                 storeAtomPath
                                 |> StoreAtomPath.AtomPath
@@ -765,35 +767,50 @@ module Engine =
                                                                 return encrypted
                                                         }
 
-                                                    let! response =
-                                                        hub.invokeAsPromise (
-                                                            Sync.Request.Set (
-                                                                alias |> Alias.Value,
-                                                                atomPath,
-                                                                newValueJson
-                                                            )
-                                                        )
+                                                    do!
+                                                        hub
+                                                        |> Array.map
+                                                            (fun hub ->
+                                                                promise {
+                                                                    let! response =
+                                                                        hub.invokeAsPromise (
+                                                                            Sync.Request.Set (
+                                                                                alias |> Alias.Value,
+                                                                                atomPath,
+                                                                                newValueJson
+                                                                            )
+                                                                        )
 
-                                                    match response with
-                                                    | Sync.Response.SetResult result ->
+                                                                    match response with
+                                                                    | Sync.Response.SetResult result ->
 
-                                                        let getLocals () = $"result={result} {getLocals ()}"
+                                                                        let getLocals () =
+                                                                            $"result={result} {getLocals ()}"
 
-                                                        addTimestamp
-                                                            (fun () ->
-                                                                "[ ||==> setAdapterValue ](j4-2) HUB . inside setAdapterValue  ")
-                                                            getLocals
+                                                                        addTimestamp
+                                                                            (fun () ->
+                                                                                "[ ||==> setAdapterValue ](j4-2) HUB . inside setAdapterValue  ")
+                                                                            getLocals
 
-                                                        if result then
-                                                            adapterSetAtom (
-                                                                Transaction (NotFromUi, lastTicks, lastValue)
-                                                            )
-                                                    | response ->
-                                                        let getLocals () = $"response={response} {getLocals ()}"
+                                                                        if result then
+                                                                            adapterSetAtom (
+                                                                                Transaction (
+                                                                                    NotFromUi,
+                                                                                    lastTicks,
+                                                                                    lastValue
+                                                                                )
+                                                                            )
+                                                                    | response ->
+                                                                        let getLocals () =
+                                                                            $"response={response} {getLocals ()}"
 
-                                                        Logger.logError
-                                                            (fun () -> $"{nameof FsStore} | Store.putFromUi. #90592")
-                                                            getLocals
+                                                                        Logger.logError
+                                                                            (fun () ->
+                                                                                $"{nameof FsStore} | Store.putFromUi. #90592")
+                                                                            getLocals
+                                                                })
+                                                        |> Promise.all
+                                                        |> Promise.ignore
                                                 with
                                                 | ex ->
                                                     let getLocals () = $"ex={ex} {getLocals ()}"
@@ -953,7 +970,10 @@ module Engine =
 
                         let subscriptionTicks = Guid.newTicksGuid ()
                         let subscriptionId = SubscriptionId subscriptionTicks
-                        let subscription = newHashedDisposable subscriptionTicks
+
+                        let subscription =
+                            newHashedDisposable subscriptionTicks
+                            |> Promise.map Array.singleton
 
                         Some (
                             subscriptionId,
@@ -984,7 +1004,7 @@ module Engine =
 
     type AtomId = AtomId of adapterType: Atom.AdapterType * alias: Gun.Alias * storeAtomPath: StoreAtomPath
 
-    let gunSubscriptionMap = Dictionary<AtomId, (SubscriptionId * IDisposable * (Transaction -> unit)) option> ()
+    let gunSubscriptionMap = Dictionary<AtomId, (SubscriptionId * IDisposable [] * (Transaction -> unit)) option> ()
     //    let collectionSubscriptionMap = Dictionary<StoreRoot * Collection, unit -> unit> ()
 
 
@@ -994,7 +1014,7 @@ module Engine =
                     -> (AtomConfig<obj> -> obj -> unit)
                     -> Atom.AdapterOptions
                     -> (Transaction -> unit)
-                    -> (SubscriptionId * JS.Promise<IDisposable> * (Transaction -> unit)) option)
+                    -> (SubscriptionId * JS.Promise<IDisposable []> * (Transaction -> unit)) option)
         (unmount: Getter<obj> -> (AtomConfig<obj> -> obj -> unit) -> Atom.AdapterOptions -> unit)
         : AtomConfig<Transaction option> =
         let atom = Atom.Primitives.create (AtomType.Atom None)
@@ -1769,8 +1789,11 @@ module Engine =
             | Some (Alias alias) ->
                 let hub = Atom.get getter Selectors.Hub.hub
 
-                match hub with
-                | Some hub -> do! hub.sendAsPromise (Sync.Request.Set (alias, atomPath |> AtomPath.Value, null))
-                | _ -> Logger.logDebug (fun () -> $"{nameof FsStore} | Engine.delete. invalid hub. skipping") getLocals
+                do!
+                    hub
+                    |> Array.map
+                        (fun hub -> hub.sendAsPromise (Sync.Request.Set (alias, atomPath |> AtomPath.Value, null)))
+                    |> Promise.all
+                    |> Promise.ignore
             | _ -> failwith $"{nameof FsStore} | Engine.delete. invalid alias"
         }

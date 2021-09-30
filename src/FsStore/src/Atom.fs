@@ -24,7 +24,7 @@ module Atom =
     type AdapterOptions =
         | Memory
         | Gun of gunPeers: Gun.GunPeer [] * alias: Gun.Alias
-        | Hub of hubUrl: string * alias: Gun.Alias
+        | Hub of hubUrls: string [] * alias: Gun.Alias
 
     type AtomInternalKey = AtomInternalKey of key: string
 

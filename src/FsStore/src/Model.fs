@@ -45,11 +45,6 @@ module Model =
 
     type AtomField<'A> = AtomField of Jotai.AtomConfig<'A> option * Jotai.AtomConfig<string> option
 
-    [<RequireQualifiedAccess>]
-    type GunOptions =
-        | Minimal
-        | Sync of Gun.GunPeer []
-
     [<Erase>]
     type AtomPath = AtomPath of atomPath: string
 

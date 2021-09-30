@@ -25,16 +25,13 @@ module rec Gun =
         readSelector
             (nameof gunPeers)
             (fun getter ->
-                let gunOptions = Atom.get getter Atoms.gunOptions
+                let gunPeers = Atom.get getter Atoms.gunPeers
 
-                match gunOptions with
-                | GunOptions.Minimal -> [||]
-                | GunOptions.Sync gunPeers ->
-                    gunPeers
-                    |> Array.filter
-                        (function
-                        | GunPeer (String.Valid _) -> true
-                        | _ -> false))
+                gunPeers
+                |> Array.filter
+                    (function
+                    | GunPeer (String.Valid _) -> true
+                    | _ -> false))
 
 
     let rec gun =
@@ -198,13 +195,14 @@ module rec Gun =
             (nameof adapterOptions)
             (fun getter ->
                 let alias = Atom.get getter alias
-                let gunOptions = Atom.get getter Atoms.gunOptions
+                let gunSync = Atom.get getter Atoms.gunSync
+                let gunPeers = Atom.get getter Atoms.gunPeers
 
                 let getLocals () =
-                    $"alias={alias} gunOptions={Json.encodeWithNull gunOptions}"
+                    $"alias={alias} gunSync={gunSync} gunPeers={gunPeers}"
 
                 Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Selectors.Gun.adapterOptions get()") getLocals
 
-                match gunOptions, alias with
-                | GunOptions.Sync peers, Some alias -> Some (Atom.AdapterOptions.Gun (peers, alias))
+                match gunPeers, alias with
+                | peers, Some alias when gunSync -> Some (Atom.AdapterOptions.Gun (peers, alias))
                 | _ -> None)
