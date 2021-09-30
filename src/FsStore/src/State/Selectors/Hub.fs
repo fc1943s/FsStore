@@ -36,6 +36,7 @@ module Hub =
             (nameof adapterOptions)
             (fun getter ->
                 let alias = Atom.get getter Selectors.Gun.alias
+                let hubSync = Atom.get getter Atoms.hubSync
                 let hubUrls = Atom.get getter Atoms.hubUrls
 
                 let getLocals () = $"alias={alias} hubUrls={hubUrls}"
@@ -43,7 +44,7 @@ module Hub =
                 Profiling.addTimestamp (fun () -> $"{nameof FsStore} | Selectors.Hub.adapterOptions get()") getLocals
 
                 match alias with
-                | Some alias -> Some (Atom.AdapterOptions.Hub (hubUrls |> validUrls, alias))
+                | Some alias when hubSync -> Some (Atom.AdapterOptions.Hub (hubUrls |> validUrls, alias))
                 | _ -> None)
 
     let rec hubConnections =

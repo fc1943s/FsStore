@@ -347,12 +347,10 @@ module Gun =
                         if ack.ok = Some 1 && ack.err.IsNone then
                             res true
                         else
-
                             let getLocals () =
                                 $"newValue={newValue} ack={JS.JSON.stringify ack} {getLocals ()}"
 
                             Logger.logError (fun () -> $"{nameof FsStore} | Gun.put / invalid ack") getLocals
-
                             res false)
                 |> ignore)
 
@@ -429,8 +427,7 @@ module Gun =
                                         .get(gunNodeSlice)
                                         .once (fun result _key ->
                                             printfn $"hashData result={result} key={_key}"
-                                            res (result |> unbox<EncryptedSignedValue>)
-                                            ())
+                                            res (result |> unbox<EncryptedSignedValue>))
                                 | _ ->
                                     Logger.logDebug
                                         (fun () ->
