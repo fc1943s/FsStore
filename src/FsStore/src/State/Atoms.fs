@@ -28,6 +28,8 @@ module AtomsMagic =
         let rec hubUrls =
             Atom.createWithStorage (RootAtomPath (FsStore.storeRoot, AtomName (nameof hubUrls))) ([||]: string [])
 
+        let rec hubSync = Atom.createWithStorage (RootAtomPath (FsStore.storeRoot, AtomName (nameof hubSync))) false
+
         let rec sessionRestored =
             Atom.create (RootAtomPath (FsStore.storeRoot, AtomName (nameof sessionRestored))) (AtomType.Atom false)
 
