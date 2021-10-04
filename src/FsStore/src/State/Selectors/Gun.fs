@@ -104,27 +104,25 @@ module rec Gun =
                 let _gunTrigger = Atom.get getter Atoms.gunTrigger
                 let gunUser = Atom.get getter gunUser
 
-                match gunUser.is with
+                match gunUser.is, gunUser.__.sea with
                 | Some {
                            alias = Some (GunUserAlias.Alias (Alias (String.Valid alias)))
-                       } ->
+                       },
+                  Some { pub = Some (Pub (String.Valid pub)) } when alias <> pub ->
                     let getLocals () =
                         $"alias={alias} keys={gunUser.__.sea |> Js.objectKeys} {getLocals ()}"
 
                     logger.Debug (fun () -> "Selectors.Gun.alias") getLocals
-
                     Some (Alias alias)
-                | _ ->
-                    match gunUser.__.sea with
-                    | Some { priv = Some (Priv (String.Valid _)) } ->
-                        let internalAlias = Atom.get getter Atoms.internalAlias
+                | _, Some { priv = Some (Priv (String.Valid _)) } ->
+                    let internalAlias = Atom.get getter Atoms.internalAlias
 
-                        let getLocals () =
-                            $"internalAlias={internalAlias} {getLocals ()}"
+                    let getLocals () =
+                        $"internalAlias={internalAlias} {getLocals ()}"
 
-                        logger.Debug (fun () -> "Selectors.Gun.alias") getLocals
-                        internalAlias
-                    | _ -> None)
+                    logger.Debug (fun () -> "Selectors.Gun.alias") getLocals
+                    internalAlias
+                | _ -> None)
 
     let rec privateKeys =
         readSelector
