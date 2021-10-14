@@ -202,16 +202,16 @@ module Hub =
                                                                 $"{nameof FsStore} | Selectors.Hub.hubConnection. onMsg. skipping. invalid atom ")
                                                             getLocals
 
-                                                | Sync.Response.FilterResult keys ->
+                                                | Sync.Response.KeysResult keys ->
                                                     let getLocals () = $"keys={keys} {getLocals ()}"
 
                                                     Logger.logDebug
                                                         (fun () ->
                                                             $"{nameof FsStore} | Selectors.Hub.hubConnection. Sync.Response.FilterResult")
                                                         getLocals
-                                                | Sync.Response.FilterStream (alias, atomPath, keys) ->
+                                                | Sync.Response.KeysStream (alias, atomPath, updatedKeys, deletedKeys) ->
                                                     let getLocals () =
-                                                        $"alias={alias} atomPath={atomPath} keys={keys} {getLocals ()}"
+                                                        $"alias={alias} atomPath={atomPath} updatedKeys={updatedKeys} deletedKeys={deletedKeys} {getLocals ()}"
 
                                                     Logger.logDebug
                                                         (fun () ->
@@ -219,7 +219,7 @@ module Hub =
                                                         getLocals
 
                                                 match msg with
-                                                | Sync.Response.FilterStream (alias, atomPath, keys) ->
+                                                | Sync.Response.KeysStream (alias, atomPath, updatedKeys, deletedKeys) ->
                                                     let storeRoot, collection =
                                                         match atomPath |> String.split "/" |> Array.toList with
                                                         | storeRoot :: collection :: _ -> storeRoot, collection
