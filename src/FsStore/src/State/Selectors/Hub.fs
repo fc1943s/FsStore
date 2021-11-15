@@ -22,7 +22,8 @@ module Hub =
     let inline readSelector name fn =
         Atom.readSelector (ValueAtomPath (FsStore.storeRoot, collection, [], AtomName name)) fn
 
-    let hubKeySubscriptionMap = Dictionary<Gun.Alias * StoreRoot * Collection, string [] -> unit> ()
+    let hubKeySubscriptionMap = Dictionary<Gun.Alias * StoreRoot * Collection, ReceivedKeys -> unit> ()
+
     let hubAtomSubscriptionMap = Dictionary<Gun.Alias * StoreAtomPath, string option -> JS.Promise<unit>> ()
 
     let validUrls =
@@ -209,6 +210,7 @@ module Hub =
                                                         (fun () ->
                                                             $"{nameof FsStore} | Selectors.Hub.hubConnection. Sync.Response.FilterResult")
                                                         getLocals
+
                                                 | Sync.Response.KeysStream (alias, atomPath, updatedKeys, deletedKeys) ->
                                                     let getLocals () =
                                                         $"alias={alias} atomPath={atomPath} updatedKeys={updatedKeys} deletedKeys={deletedKeys} {getLocals ()}"
@@ -218,8 +220,6 @@ module Hub =
                                                             $"{nameof FsStore} | Selectors.Hub.hubConnection. Sync.Response.FilterStream")
                                                         getLocals
 
-                                                match msg with
-                                                | Sync.Response.KeysStream (alias, atomPath, updatedKeys, deletedKeys) ->
                                                     let storeRoot, collection =
                                                         match atomPath |> String.split "/" |> Array.toList with
                                                         | storeRoot :: collection :: _ -> storeRoot, collection
@@ -240,21 +240,20 @@ module Hub =
                                                                 $"{nameof FsStore} | Selectors.Hub.hubConnection. Selectors.hub. FilterStream. onMsg. triggering")
                                                             getLocals
 
-                                                        fn keys
+                                                        fn (
+                                                            ReceivedKeys.Merge (
+                                                                UpdatedKeys updatedKeys,
+                                                                DeletedKeys deletedKeys
+                                                            )
+                                                        )
+
                                                     | None ->
                                                         let getLocals () = $"msg={msg} {getLocals ()}"
 
                                                         Logger.logDebug
                                                             (fun () ->
                                                                 $"{nameof FsStore} | Selectors.Hub.hubConnection. onMsg. FilterStream. skipping. not in map")
-                                                            getLocals
-                                                | _ ->
-                                                    let getLocals () = $"msg={msg} {getLocals ()}"
-
-                                                    Logger.logDebug
-                                                        (fun () ->
-                                                            $"{nameof FsStore} | Selectors.Hub.hubConnection. onMsg. FilterStream. skipping. not handled")
-                                                        getLocals))
+                                                            getLocals))
 
                             let getLocals () =
                                 $"alias={alias} hubUrl={hubUrl} {getLocals ()}"

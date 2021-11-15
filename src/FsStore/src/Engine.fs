@@ -238,6 +238,7 @@ module Engine =
                         addTimestamp (fun () -> "[ wrapper.mount() ](h1)") getLocals
 
                         if intervalHandle = -1 then getFn getter setAtom
+
                         intervalHandle <- JS.setInterval (fun () -> getFn getter setAtom) interval
                     })
                 (fun _getter _setter ->
@@ -245,6 +246,7 @@ module Engine =
                     addTimestamp (fun () -> "[ wrapper.unmount() ](h4) ") getLocals
 
                     if intervalHandle >= 0 then JS.clearTimeout intervalHandle
+
                     intervalHandle <- -1)
 
         wrapper?init <- defaultValue
@@ -345,7 +347,7 @@ module Engine =
                     (fun newKeySet (kind, _ticks, key) ->
                         let setFn =
                             match kind with
-                            | BatchKind.RemoveItem -> Set.remove
+                            | BatchKind.DeleteItem -> Set.remove
                             | BatchKind.UnionItem -> Set.add
 
                         newKeySet |> setFn key)
@@ -456,6 +458,7 @@ module Engine =
                         let getLocals () = $"atomPath={atomPath}  {getLocals ()}"
 
                         let privateKeys = Atom.get getter Selectors.Gun.privateKeys
+
                         let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (Some alias, atomPath))
 
                         let getLocals () =
@@ -570,7 +573,7 @@ module Engine =
                                                         typeMetadata.OnFormat
                                                         (match gunValue |> Option.ofObjUnbox with
                                                          | Some _ -> BatchKind.UnionItem
-                                                         | _ -> BatchKind.RemoveItem)
+                                                         | _ -> BatchKind.DeleteItem)
                                                         (Some alias, storeRoot, collection)
                                                         (NotFromUi, Guid.newTicksGuid (), rawKey)
                                                 })
@@ -644,6 +647,7 @@ module Engine =
                     match adapterOptions with
                     | Atom.AdapterOptions.Hub (_hubUrl, alias) ->
                         let hub = Atom.get getter Selectors.Hub.hub
+
                         let privateKeys = Atom.get getter Selectors.Gun.privateKeys
 
                         match privateKeys with
@@ -823,7 +827,7 @@ module Engine =
 
                                     Some (subscription, setAdapterValue)
                                 | CollectionAtomPath (storeRoot, collection) as storeAtomPath ->
-                                    addTimestamp (fun () -> "[ |--| mount ] invoking collection subscribe  ") getLocals
+                                    addTimestamp (fun () -> "[ |--| mount ] invoking collection subscribe ") getLocals
 
                                     let atomPath =
                                         storeAtomPath
@@ -832,41 +836,67 @@ module Engine =
 
                                     let getLocals () = $"atomPath={atomPath} {getLocals ()}"
 
-                                    let handle (items: string []) =
+                                    let inline handle (receivedKeys: ReceivedKeys) =
                                         let lastKeySet =
                                             lastCollectionKeyMap
                                             |> Map.tryFindDictionary storeAtomPath
                                             |> Option.defaultValue Set.empty
 
-                                        let newKeysSet = items |> Array.map AtomKeyFragment |> Set.ofArray
+                                        let keysToAddSet, keysToDeleteSet =
+                                            match receivedKeys with
+                                            | ReceivedKeys.Replace (ReplacedKeys replacedKeys) ->
+                                                let replacedKeysSet =
+                                                    replacedKeys
+                                                    |> Array.map AtomKeyFragment
+                                                    |> Set.ofArray
 
-                                        let keysToAddSet =
-                                            newKeysSet
-                                            |> Set.filter (lastKeySet.Contains >> not)
+                                                let keysToAddSet =
+                                                    replacedKeysSet
+                                                    |> Set.filter (lastKeySet.Contains >> not)
 
-                                        let keysToRemoveSet =
-                                            lastKeySet
-                                            |> Set.filter (newKeysSet.Contains >> not)
+                                                let keysToDeleteSet =
+                                                    lastKeySet
+                                                    |> Set.filter (replacedKeysSet.Contains >> not)
+
+                                                keysToAddSet, keysToDeleteSet
+                                            | ReceivedKeys.Merge (UpdatedKeys updatedKeys, DeletedKeys deletedKeys) ->
+                                                let updatedKeysSet =
+                                                    updatedKeys
+                                                    |> Array.map AtomKeyFragment
+                                                    |> Set.ofArray
+
+                                                let deletedKeysSet =
+                                                    deletedKeys
+                                                    |> Array.map AtomKeyFragment
+                                                    |> Set.ofArray
+
+                                                let keysToAddSet =
+                                                    updatedKeysSet
+                                                    |> Set.filter (lastKeySet.Contains >> not)
+
+                                                let keysToDeleteSet = deletedKeysSet |> Set.filter lastKeySet.Contains
+
+                                                keysToAddSet, keysToDeleteSet
 
                                         let addArray =
                                             keysToAddSet
                                             |> Set.toArray
                                             |> Array.map (fun key -> BatchKind.UnionItem, key)
 
-                                        let removeArray =
-                                            keysToRemoveSet
+                                        let deleteArray =
+                                            keysToDeleteSet
                                             |> Set.toArray
-                                            |> Array.map (fun key -> BatchKind.RemoveItem, key)
+                                            |> Array.map (fun key -> BatchKind.DeleteItem, key)
 
                                         let getLocals () =
-                                            $"items={items} lastKeySet={lastKeySet} keysToAddSet={keysToAddSet} keysToRemoveSet={keysToRemoveSet} {getLocals ()}"
+                                            $"receivedKeys={receivedKeys} lastKeySet={lastKeySet} keysToAddSet={keysToAddSet} keysToDeleteSet={keysToDeleteSet} {getLocals ()}"
 
                                         addTimestamp
                                             (fun () -> "CollectionAtomPath hub FilterResult stream handle")
                                             getLocals
 
                                         addArray
-                                        |> Array.append removeArray
+                                        |> Array.append deleteArray
                                         |> Array.iter
                                             (fun (kind, key) ->
                                                 batchAtomKey
@@ -882,9 +912,9 @@ module Engine =
                                     let subscription =
                                         hubSubscribe
                                             hub
-                                            (Sync.Request.Filter (alias |> Alias.Value, atomPath))
+                                            (Sync.Request.Keys (alias |> Alias.Value, atomPath))
                                             (fun (response: Sync.Response) ->
-                                                let getLocals () = $"response={response}  {getLocals ()}"
+                                                let getLocals () = $"response={response} {getLocals ()}"
 
                                                 addTimestamp
                                                     (fun () ->
@@ -892,7 +922,8 @@ module Engine =
                                                     getLocals
 
                                                 match response with
-                                                | Sync.Response.FilterResult keys -> handle keys
+                                                | Sync.Response.KeysResult keys ->
+                                                    handle (ReceivedKeys.Replace (ReplacedKeys keys))
                                                 | response ->
                                                     let getLocals () = $"response={response} {getLocals ()}"
 
@@ -1179,6 +1210,7 @@ module Engine =
                             value
                         | None ->
                             let mount, unmount = mount storeAtomPath, unmount storeAtomPath
+
                             let newAtom = createAtomWithAdapter atomId mount unmount
 
                             addTimestamp
@@ -1276,6 +1308,7 @@ module Engine =
             (fun getter ->
                 refreshAdapterValues getter
                 let alias = Atom.get getter Selectors.Gun.alias
+
                 let collectionKeys = Atom.get getter (collectionKeysFamily (alias, storeRoot, collection))
 
                 let getLocals () =
@@ -1351,7 +1384,9 @@ module Engine =
             Atom.Primitives.selector
                 (fun getter ->
                     let alias = Atom.get getter Selectors.Gun.alias
+
                     let userAtom = userAtomFamily (GroupRef (unbox defaultGroup), alias, storeAtomPath)
+
                     let lastSyncValueByType = Atom.get getter userAtom
 
                     let result =
@@ -1388,6 +1423,7 @@ module Engine =
                     finalResult)
                 (fun getter setter (newValue: ('TGroup * (TicksGuid * 'A6)) list) ->
                     let alias = Atom.get getter Selectors.Gun.alias
+
                     let userAtom = groupMapFamily (GroupRef defaultGroup, alias, storeAtomPath)
 
                     let newValue =
@@ -1629,6 +1665,7 @@ module Engine =
 
 
                     let alias = Atom.get getter Selectors.Gun.alias
+
                     let collectionPath = storeAtomPath |> StoreAtomPath.CollectionPath
 
                     let getLocals () =
@@ -1640,6 +1677,7 @@ module Engine =
                         && newValue <> unbox null
                         ->
                         let collectionAtomType = collectionTypeMap.[(storeRoot, collection)]
+
                         let collectionType = DataType.Key, collectionAtomType
 
                         if typeMetadataMap.ContainsKey collectionType then
@@ -1750,7 +1788,9 @@ module Engine =
 
     let inline createAtomWithSubscriptionStorage storeAtomPath (defaultValue: 'A10) =
         let storageAtom = Atom.createWithStorage<'A10> storeAtomPath defaultValue
+
         let syncAtom = createAtomWithSubscription storeAtomPath defaultValue
+
         bindAtom<'A10> syncAtom storageAtom
 
     let inline getKeysFormatter fn id =
@@ -1771,6 +1811,7 @@ module Engine =
         promise {
             let alias = Atom.get getter Selectors.Gun.alias
             let atomPath = storeAtomPath |> StoreAtomPath.AtomPath
+
             let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
 
             let getLocals () = ""

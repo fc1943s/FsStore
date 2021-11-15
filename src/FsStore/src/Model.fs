@@ -99,6 +99,17 @@ module Model =
         | Command of command: 'TCommand
         | Event of event: 'TEvent
 
+
+    type ReplacedKeys = ReplacedKeys of string []
+    type UpdatedKeys = UpdatedKeys of string []
+    type DeletedKeys = DeletedKeys of string []
+
+    [<RequireQualifiedAccess>]
+    type ReceivedKeys =
+        | Replace of ReplacedKeys
+        | Merge of UpdatedKeys * DeletedKeys
+
+
     //    let inline splitAtomPath (AtomPath atomPath) =
 //        let matches =
 //            (JSe.RegExp @"(.*?)\/([\w-]{36})\/\w+.*?")
@@ -131,7 +142,9 @@ module Model =
 
     type AtomPath with
         static member inline Value (AtomPath atomPath) = atomPath
-        static member inline AtomKey _atomPath = AtomPath (failwith $"{nameof FsStore} | invalid")
+
+        static member inline AtomKey _atomPath =
+            AtomPath (failwith $"{nameof FsStore} | invalid")
 
     type AppEngineState with
         static member inline Default = { NotificationQueue = [] }

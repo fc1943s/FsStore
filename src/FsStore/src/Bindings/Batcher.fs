@@ -40,7 +40,7 @@ module Batcher =
     [<RequireQualifiedAccess>]
     type BatchKind =
         | UnionItem
-        | RemoveItem
+        | DeleteItem
 
     [<RequireQualifiedAccess>]
     type BatchType<'TKey, 'TValue> =
@@ -70,7 +70,7 @@ module Batcher =
         with
         | ex ->
             let getLocals () = $"ex={ex} {getLocals ()}"
-            Logger.logError (fun () -> $"[FsStore?] | wrapTry fn exception") getLocals
+            Logger.logError (fun () -> "[FsStore?] | wrapTry fn exception") getLocals
             JS.undefined
 
     let inline internalBatch (itemsArray: BatchType<obj, obj> []) =

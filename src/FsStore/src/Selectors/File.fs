@@ -24,6 +24,7 @@ module rec File =
             (AtomName (nameof hexString))
             (fun fileId getter ->
                 let logger = Atom.get getter Store.logger
+
                 let chunkCount = Atom.get getter (Atoms.File.chunkCount fileId)
 
                 match chunkCount with
@@ -87,9 +88,8 @@ module rec File =
                     let progress = 100 / chunkCount * completedChunkCount
 
                     let getLocals () =
-                        $"
+                        $"size(kb)={(chunkLengthArray |> Array.sum) / 1024}
 size(bytes)={chunkLengthArray |> Array.sum}
-size(kb)={(chunkLengthArray |> Array.sum) / 1024}
 chunkCount={chunkCount}
 completedChunkCount={completedChunkCount}
 progress={progress} {getLocals ()}"
