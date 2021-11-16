@@ -1,6 +1,6 @@
 module.exports = {
   testEnvironment: 'jsdom',
-  "preset": "ts-jest",
+  preset: "ts-jest",
   verbose: true,
   forceExit: true,
   testNamePattern: "",
@@ -11,5 +11,5 @@ module.exports = {
     '\\.js$': ['babel-jest', { configFile: './_babel.config.json' }]
   },
   testMatch: ["**/*.test.fs.js"],
-  testPathIgnorePatterns: [".fable"]
+  testPathIgnorePatterns: ["fable_modules"]
 };

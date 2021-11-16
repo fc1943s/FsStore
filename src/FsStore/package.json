@@ -12,15 +12,15 @@
     "build:fable": "dotnet tool restore && dotnet paket restore && dotnet fable",
     "watch:fable-build": "dotnet fable watch",
     "build": "yarn build:fable",
-    "test-parallel": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage false --colors",
+    "test-parallel": "cross-env NODE_OPTIONS=--experimental-modules jest --coverage false --colors",
     "test-sequential": "yarn test-parallel --runInBand --detectOpenHandles",
     "test": "yarn test-parallel",
     "test-watch": "yarn test --watchAll",
     "test-build-watch": "concurrently \"npm:watch:fable-build\" \"npm:test-watch\""
   },
   "dependencies": {
-    "react": "18.0.0-alpha-cb11155c8-20211112",
-    "react-dom": "18.0.0-alpha-cb11155c8-20211112",
+    "react": "18.0.0-beta-96ca8d915-20211115",
+    "react-dom": "18.0.0-beta-96ca8d915-20211115",
     "jotai": "~1.4"
   },
   "devDependencies": {
