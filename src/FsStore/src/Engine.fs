@@ -1725,8 +1725,7 @@ module Engine =
                     (defaultValueFn param))
 
     let inline bindAtom<'A9 when 'A9: equality> atom1 (atom2: Jotai.AtomConfig<_>) =
-        let mutable lastSetAtom: ('A9 option -> unit) option = None
-        let mutable lastValue = None
+        let mutable lastValue: 'A9 option = None
 
         let getLocals () =
             $"atom1={atom1} atom2={atom2} lastValue={lastValue} {getLocals ()}"
@@ -1752,38 +1751,28 @@ module Engine =
                         $"value1={value1} value2={value2} {getLocals ()}"
 
                     addTimestamp (fun () -> "[ wrapper.get() ](b2) choosing value2") getLocals
+                    lastValue <- Some value2
                     value2
                 | value1, value2 ->
                     let getLocals () =
                         $"value1={value1} value2={value2} {getLocals ()}"
 
-                    match lastSetAtom with
-                    | Some lastSetAtom when
-                        lastValue.IsNone
-                        || lastValue |> Object.compare (Some value1) |> not
-                        ->
-                        addTimestamp (fun () -> "[ wrapper.get() ](b3) different. triggering additional") getLocals
-
-                        lastValue <- Some value1
-                        lastSetAtom (Some value1)
-                    | _ -> ()
-
                     addTimestamp (fun () -> "[ wrapper.get() ](b4) choosing value1") getLocals
-
+                    lastValue <- Some value1
                     value1)
             (fun _get setter newValue ->
                 let getLocals () = $"newValue={newValue} {getLocals ()}"
 
                 if lastValue.IsNone
                    || lastValue |> Object.compare (Some newValue) |> not then
-                    lastValue <- Some newValue
                     Atom.set setter atom1 newValue
 
                     addTimestamp (fun () -> "[ wrapper.set() ](b5) setting atom1 and atom2") getLocals
                 else
                     addTimestamp (fun () -> "[ wrapper.set() ](b6) setting atom2 only") getLocals
 
-                Atom.set setter atom2 newValue)
+                Atom.set setter atom2 newValue
+                lastValue <- Some newValue)
 
 
     let inline createAtomWithSubscriptionStorage storeAtomPath (defaultValue: 'A10) =
