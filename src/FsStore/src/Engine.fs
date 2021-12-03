@@ -924,12 +924,10 @@ module Engine =
                                                 match response with
                                                 | Sync.Response.KeysResult keys ->
                                                     handle (ReceivedKeys.Replace (ReplacedKeys keys))
-                                                | response ->
-                                                    let getLocals () = $"response={response} {getLocals ()}"
-
+                                                | _ ->
                                                     Logger.logError
                                                         (fun () ->
-                                                            $"{nameof FsStore} | Store.selectAtomSyncKeys Gun.batchHubSubscribe invalid")
+                                                            $"{nameof FsStore} | Store.selectAtomSyncKeys Gun.batchHubSubscribe invalid response")
                                                         getLocals)
                                             (fun ex ->
                                                 let getLocals () = $"ex={ex} {getLocals ()}"
