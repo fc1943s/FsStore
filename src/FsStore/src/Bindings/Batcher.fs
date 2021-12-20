@@ -143,6 +143,19 @@ module Batcher =
     let (newFn: BatchType<obj, obj> -> Cb<obj> -> unit), lock =
         let settings = {| interval = interval |}
         let newFn = internalBatcher (fun (x: _ []) _lock -> x |> internalBatch |> Promise.start) settings
+
+//        let inline newFn batchType lock =
+//            match batchType with
+//            | BatchType.Set (ticks, trigger) -> trigger ticks |> Promise.start
+//            | BatchType.Subscribe (ticks, trigger) ->
+//                promise {
+//                    let! obj = trigger ticks
+//                    obj.Dispose ()
+//                }
+//                |> Promise.start
+//            | BatchType.Data (ticks, data, key, trigger) -> trigger (ticks, data, key) |> Promise.start
+//            | BatchType.Key _ -> newFnBatch batchType lock
+
         let lock = fun () -> ()
         newFn, lock
 
