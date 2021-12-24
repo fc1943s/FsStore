@@ -62,7 +62,7 @@ module Atom =
                 do! mount setAtom
             }
 
-        let internalMount =
+        let internalOnMount =
             if not debounce then
                 internalMount >> Promise.start
             else
@@ -76,7 +76,7 @@ module Atom =
             mounted <- false
 
         let inline onMount (setAtom: _ -> unit) =
-            internalMount setAtom
+            internalOnMount setAtom
             fun _ -> internalUnmount ()
 
         let newOnMount =

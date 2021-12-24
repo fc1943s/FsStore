@@ -440,8 +440,6 @@ module Engine =
 
         let typeMetadata = typeMetadataMap.[atomType]
 
-        let debouncedGunBatchPutFromUi = Js.debounce (batchGunPutFromUi atomType) 0
-
         let getLocals () =
             $"atomType={atomType} adapterType={adapterType} {getLocals ()}"
 
@@ -524,6 +522,7 @@ module Engine =
                                         newHashedDisposable subscriptionTicks
                                         |> Promise.map Array.singleton
 
+                                    let debouncedGunBatchPutFromUi = Js.debounce (batchGunPutFromUi atomType) 0
 
                                     let inline setAdapterValue (Transaction (fromUi, lastTicks, lastValue)) =
                                         let getLocals () =
@@ -670,7 +669,7 @@ module Engine =
                                         (fun () -> $"[ |--| mount ] invoking indexed subscribe. name={name} ")
                                         getLocals
 
-                                    let handle value =
+                                    let inline handle value =
                                         promise {
                                             let! newValue =
                                                 match value |> Option.defaultValue null with
@@ -924,10 +923,12 @@ module Engine =
                                                 match response with
                                                 | Sync.Response.KeysResult keys ->
                                                     handle (ReceivedKeys.Replace (ReplacedKeys keys))
-                                                | _ ->
+                                                | response ->
+                                                    let getLocals () = $"response={response} {getLocals ()}"
+
                                                     Logger.logError
                                                         (fun () ->
-                                                            $"{nameof FsStore} | Store.selectAtomSyncKeys Gun.batchHubSubscribe invalid response")
+                                                            $"{nameof FsStore} | Store.selectAtomSyncKeys Gun.batchHubSubscribe invalid")
                                                         getLocals)
                                             (fun ex ->
                                                 let getLocals () = $"ex={ex} {getLocals ()}"
@@ -1058,41 +1059,66 @@ module Engine =
 
         addTimestamp (fun () -> "[ constructor ](f1)") getLocals
 
+        let mutable oldValue = None
+
         Atom.Primitives.selector
             (fun getter ->
                 let result = Atom.get getter atom
                 let getLocals () = $"result={result} {getLocals ()}"
                 addTimestamp (fun () -> "[ wrapper.get() ](f2)") getLocals
+                oldValue <- result
                 result)
             (fun _ setter newValue ->
                 match newValue with
-                | Some (Transaction (newFromUi, newTicks, newValue)) ->
-                    Atom.change
-                        setter
-                        atom
-                        (fun oldValue ->
-                            let getLocals () =
-                                $"oldValue={oldValue} newTicks={newTicks} newValue={newValue} newFromUi={newFromUi} {getLocals ()}"
+                | Some (Transaction (newFromUi, newTicks, newValue) as transaction) ->
+                    batch (
+                        BatchType.Set (
+                            newTicks,
+                            (fun ticks ->
+                                promise {
+                                    Atom.set setter atom (Some transaction)
 
-                            match setAdapterValue with
-                            | Some setAdapterValue when
-                                (match oldValue with
-                                 | None when newFromUi = FromUi -> true
-                                 | None -> false
-                                 | Some (Transaction (_, _, oldValue)) when oldValue |> Object.compare newValue |> not ->
-                                     true
-                                 | _ -> false)
-                                ->
-                                addTimestamp
-                                    (fun () -> "[ (^^^^2) wrapper.set() ](f3) triggering new adapter value")
-                                    getLocals
+                                    let getLocals () =
+                                        $"oldValue={oldValue} newTicks={newTicks} newValue={newValue} newFromUi={newFromUi} {getLocals ()}"
 
-                                // gunPut
-                                setAdapterValue (Transaction (newFromUi, newTicks, newValue))
-                            | _ ->
-                                addTimestamp (fun () -> "[ wrapper.set() ](f3-1) skipping new adapter assign") getLocals
+                                    match setAdapterValue with
+                                    | Some setAdapterValue when
+                                        (match oldValue with
+                                         | None when newFromUi = FromUi -> true
+                                         | None -> false
+                                         | Some (Transaction (_, _, oldValue)) when
+                                             oldValue |> Object.compare newValue |> not
+                                             ->
+                                             true
+                                         | _ -> false)
+                                        ->
+                                        addTimestamp
+                                            (fun () -> "[ (^^^^2) wrapper.set() ](f3) triggering new adapter value")
+                                            getLocals
 
-                            Some (Transaction (newFromUi, newTicks, newValue)))
+                                        let getLocals () = $"{getLocals ()}"
+
+                                        addTimestamp
+                                            (fun () -> "[ createAtomWitAdapter selector setter ] inside batch.set")
+                                            getLocals
+
+                                        //                        setAdapterValue transaction
+                                        let getLocals () = $"ticks={ticks} {getLocals ()}"
+
+                                        addTimestamp
+                                            (fun () -> "[ createAtomWitAdapter selector setter ] inside batch.set")
+                                            getLocals
+
+                                        setAdapterValue transaction
+                                    | _ ->
+                                        addTimestamp
+                                            (fun () -> "[ wrapper.set() ](f3-1) skipping new adapter assign")
+                                            getLocals
+
+                                    oldValue <- Some transaction
+                                })
+                        )
+                    )
                 | None -> failwith $"{nameof FsStore} | invalid newValue {getLocals ()}")
         |> wrapAtomWithState
             (fun getter ->
@@ -1103,9 +1129,7 @@ module Engine =
 
                 addTimestamp (fun () -> "[ state.read() ](f5)") getLocals
 
-                match adapterOptions with
-                | Some adapterOptions -> Some adapterOptions
-                | None -> None)
+                adapterOptions)
             (fun getter setter adapterOptions setAtom ->
                 promise {
                     //                let gunAtomNode = Atom.get getter (Selectors.Gun.gunAtomNode (alias, atomPath))
@@ -1116,35 +1140,39 @@ module Engine =
                     addTimestamp (fun () -> "[ @@> mount ](f6)") getLocals
 
                     if setAdapterValue.IsNone then
-                        let adapterSetAtom (Transaction (fromUi, ticksGuid, value)) =
+                        let inline adapterSetAtom (Transaction (fromUi, ticksGuid, value)) =
                             let getLocals () =
                                 $"fromUi={fromUi} ticksGuid={ticksGuid} value={value} {getLocals ()}"
-
-                            addTimestamp
-                                (fun () -> "[ setAdapterValue / setAtom ](f6+1) after debounced put?")
-                                getLocals
 
                             if setAdapterValue.IsNone then
                                 addTimestamp
                                     (fun () ->
-                                        "[ setAdapterValue / setAtom ](f6+2) skipping assign from adapter. unmounted ")
+                                        "[ setAdapterValue / setAtom ](f6+2) skipping assign from adapter. unmounted (********>) ")
                                     getLocals
                             else
-                                setAtom (Some (Transaction (fromUi, ticksGuid, value)))
+                                addTimestamp
+                                    (fun () ->
+                                        "[ ********> [ wrapAtomWithState mount / adapterSetAtom ] before batch.set ")
+                                    getLocals
 
-                        let debouncedAdapterSetAtom =
-                            Js.debounce
-                                (fun value ->
-                                    let getLocals () = $"value={value} {getLocals ()}"
+                                batch (
+                                    BatchType.Set (
+                                        ticksGuid,
+                                        (fun ticksGuid ->
+                                            promise {
+                                                let getLocals () = $"ticksGuid={ticksGuid} {getLocals ()}"
 
-                                    addTimestamp
-                                        (fun () ->
-                                            "[ ********> mountFn / debouncedAdapterSetAtom ](j3) gun. debounced on subscribe data")
-                                        getLocals
+                                                addTimestamp
+                                                    (fun () ->
+                                                        "[ wrapAtomWithState mount / adapterSetAtom ] inside batch.set")
+                                                    getLocals
 
-                                    adapterSetAtom value)
-                                0
+                                                setAtom (Some (Transaction (fromUi, ticksGuid, value)))
+                                            })
+                                    )
+                                )
 
+                        let debouncedAdapterSetAtom = Js.debounce adapterSetAtom 0
 
                         let mountResult = mount getter setter adapterOptions debouncedAdapterSetAtom
 
@@ -1500,15 +1528,15 @@ module Engine =
                    ]
                 |> List.sortByDescending (fun (_, _, _, ticks, _) -> ticks)
 
-            let valuesfmt =
-                Json.encodeWithNull (
-                    newValues
-                    |> List.map
-                        (fun (_setAdapterAtom, adapterType, fromUi, ticksGuid, value) ->
-                            adapterType, fromUi, ticksGuid, value)
-                )
-
-            let getLocals () = $"  {getLocals ()} values={valuesfmt}"
+            //            let valuesfmt =
+//                Json.encodeWithNull (
+//                    newValues
+//                    |> List.map
+//                        (fun (_setAdapterAtom, adapterType, fromUi, ticksGuid, value) ->
+//                            adapterType, fromUi, ticksGuid, value)
+//                )
+//
+//            let getLocals () = $"  {getLocals ()} values={valuesfmt}"
 
             let _lastAdapterSetAtom, lastAdapterType, lastFromUi, lastTicks, lastValue = newValues.Head
             //                | _ -> ()
@@ -1539,7 +1567,13 @@ module Engine =
                                     FromUi
                                 | _ -> lastFromUi
 
-                            setAdapterAtom (Transaction (newLastFromUi, lastTicks, lastValue))
+                            batch (
+                                BatchType.Set (
+                                    lastTicks,
+                                    (fun lastTicks ->
+                                        promise { setAdapterAtom (Transaction (newLastFromUi, lastTicks, lastValue)) })
+                                )
+                            )
                         | _ ->
                             addTimestamp
                                 (fun () -> "[ (%%%%) invalidAdapter.write() ](c3) same ticks. skipping")
